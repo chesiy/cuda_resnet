@@ -1,0 +1,28 @@
+Detecting C compiler ABI info failed to compile with the following output:
+Change Dir: D:/Google go/ParrallelProgramming/cudnn_resnet/cmake-build-debug/CMakeFiles/CMakeTmp
+
+Run Build Command(s):nmake -f Makefile /nologo cmTC_129a2\fast && 	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\HostX86\x86\nmake.exe  -f CMakeFiles\cmTC_129a2.dir\build.make /nologo -L                  CMakeFiles\cmTC_129a2.dir\build
+Building C object CMakeFiles/cmTC_129a2.dir/CMakeCCompilerABI.c.obj
+	C:\Users\admin\AppData\Local\JetBrains\Toolbox\apps\CLion\ch-0\212.5284.51\bin\cmake\win\bin\cmake.exe -E cmake_cl_compile_depends --dep-file=CMakeFiles\cmTC_129a2.dir\CMakeCCompilerABI.c.obj.d --working-dir="D:\Google go\ParrallelProgramming\cudnn_resnet\cmake-build-debug\CMakeFiles\CMakeTmp" --filter-prefix="" -- D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe @C:\Users\admin\AppData\Local\Temp\nmF29F.tmp
+NMAKE : fatal error U1077: “C:\Users\admin\AppData\Local\JetBrains\Toolbox\apps\CLion\ch-0\212.5284.51\bin\cmake\win\bin\cmake.exe”: 返回代码“0xc0000409”
+Stop.
+NMAKE : fatal error U1077: “D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\HostX86\x86\nmake.exe”: 返回代码“0x2”
+Stop.
+
+
+
+
+Detecting CXX compiler ABI info failed to compile with the following output:
+Change Dir: D:/Google go/ParrallelProgramming/cudnn_resnet/cmake-build-debug/CMakeFiles/CMakeTmp
+
+Run Build Command(s):nmake -f Makefile /nologo cmTC_84da1\fast && 	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\HostX86\x86\nmake.exe  -f CMakeFiles\cmTC_84da1.dir\build.make /nologo -L                  CMakeFiles\cmTC_84da1.dir\build
+Building CXX object CMakeFiles/cmTC_84da1.dir/CMakeCXXCompilerABI.cpp.obj
+	C:\Users\admin\AppData\Local\JetBrains\Toolbox\apps\CLion\ch-0\212.5284.51\bin\cmake\win\bin\cmake.exe -E cmake_cl_compile_depends --dep-file=CMakeFiles\cmTC_84da1.dir\CMakeCXXCompilerABI.cpp.obj.d --working-dir="D:\Google go\ParrallelProgramming\cudnn_resnet\cmake-build-debug\CMakeFiles\CMakeTmp" --filter-prefix="" -- D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe @C:\Users\admin\AppData\Local\Temp\nmFE86.tmp
+NMAKE : fatal error U1077: “C:\Users\admin\AppData\Local\JetBrains\Toolbox\apps\CLion\ch-0\212.5284.51\bin\cmake\win\bin\cmake.exe”: 返回代码“0xc0000409”
+Stop.
+NMAKE : fatal error U1077: “D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\HostX86\x86\nmake.exe”: 返回代码“0x2”
+Stop.
+
+
+
+

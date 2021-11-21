@@ -12,8 +12,9 @@ private:
     pooling2d<Dtype> avgpool;
     fullyconnect<Dtype> fc;
     Dtype* conv1_w,conv1_b;
-    BasicBlock<Dtype> layer1,layer2,layer3,layer4,layer5,layer6,layer7,layer8;
-    Dtype* w1,w2,b1,b2;
+    BasicBlock<Dtype> layer1,layer2,layer3,layer4,layer5;
+    Bottleneck<Dtype> neck_layer1,neck_layer2,neck_layer3;
+    Dtype* w1,w2,w3,b1,b2,b3;
 
 public:
     Resnet18(){
@@ -22,23 +23,25 @@ public:
         maxpool({3,3},0,{1,1},{2,2});
         layer1(64,64,w1,b1,w2,b2,1);
         layer2(64,64,w1,b1,w2,b2,1);
-        layer3(64,128,w1,b1,w2,b2,2);
-        layer4(128,128,w1,b1,w2,b2,1);
-        layer5(128,256,w1,b1,w2,b2,2);
-        layer6(256,256,w1,b1,w2,b2,1);
-        layer7(256,512,w1,b1,w2,b2,2);
-        layer8(512,1512,w1,b1,w2,b2,1);
+        neck_layer1(64,128,w1,b1,w2,b2,w3,b3,2);
+        layer3(128,128,w1,b1,w2,b2,1);
+        neck_layer2(128,256,w1,b1,w2,b2,w3,b3,2);
+        layer4(256,256,w1,b1,w2,b2,1);
+        neck_layer3(256,512,w1,b1,w2,b2,w3,b3,2);
+        layer5(512,512,w1,b1,w2,b2,1);
     }
 
-    void forward(Dtype* A, Dtype* B){
-        Dtype *tmp_out1,*tmp_out2;
-        int out_height1,out_width1,out_channels1;
-        int out_height2,out_width2,out_channels2;
-        conv1.forward(A,tmp_out1,224,224,&out_height1,&out_width1,&out_channels1);
-        relu.forward(tmp_out1,tmp_out2,out_height1,out_width1,out_channels1);
-        maxpool.forward(tmp_out2,tmp_out1,out_height1,out_width1,out_channels1,&out_height2,&out_width2,&out_channels2);
+    void forward(tensor<Dtype>* A, tensor<Dtype>* B){
+        tensor<Dtype> *tmp_out1,*tmp_out2;
+        conv1.forward(A,tmp_out1);
+        relu.forward(tmp_out1,tmp_out2);
+        maxpool.forward(tmp_out2,tmp_out1);
 
-        layer1.forward(tmp_out1)
+        tmp_out2 = layer1.forward(tmp_out1);
+        relu.forward(tmp_out2,tmp_out1);
+        tmp_out2=layer2.forward(tmp_out1);
+        relu.forward(tmp_out2,tmp_out1);
+
     }
 
 };

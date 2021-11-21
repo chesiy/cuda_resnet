@@ -9,6 +9,11 @@
 
 using namespace std;
 
+template<class Dtype> struct tensor{
+    Dtype* data;
+    int width,height,channels;
+};
+
 template<class Dtype> class conv2d{
 private:
     int in_channels;
@@ -24,7 +29,10 @@ public:
     conv2d(int in_c, int out_c, Dtype* weight, Dtype* bias, const tuple<int,int>&kernel_sz, const tuple<int,int> &dialations={1,1}, const tuple<int,int>&padding={0,0}, const tuple<int,int>&strides={1,1}):
             in_channels(in_c),out_channels(out_c),Weight(weight),Bias(bias),kernel_size(kernel_sz),dialations(dialations),padding(padding),strides(strides){}
 
-    void forward(const Dtype* A, const Dtype* B, const int height_A, const int width_A, int* height_B, int* width_B, int* channel_B){
+    void forward(const tensor<Dtype>* tensor_A, const tensor<Dtype>* tensor_B){
+        const int height_A=tensor_A->height, width_A=tensor_A->width;
+        Dtype *A=tensor_A->data;
+
         cudnnHandle_t h_cudnn;
         cudnnCreate(&h_cudnn);
 
@@ -35,9 +43,13 @@ public:
 
         // =================================================计算输出大小
         cudnnTensorDescriptor_t ts_out;
-        *height_B = (height_A+2*get<0>(padding)-get<0>(dialations)*(get<0>(kernel_size)-1)-1)/get<0>(strides) + 1;
-        *width_B = (width_A+2*get<1>(padding)-get<1>(dialations)*(get<1>(kernel_size)-1)-1)/get<1>(strides) + 1;
-        *channel_B = out_channels;
+        int height_B = (height_A+2*get<0>(padding)-get<0>(dialations)*(get<0>(kernel_size)-1)-1)/get<0>(strides) + 1;
+        int width_B = (width_A+2*get<1>(padding)-get<1>(dialations)*(get<1>(kernel_size)-1)-1)/get<1>(strides) + 1;
+
+        tensor_B->height=height_B;
+        tensor_B->width=width_B;
+        tensor_B->channels=out_channels;
+
         checkCUDNN(cudnnCreateTensorDescriptor(&ts_out));
         checkCUDNN(cudnnSetTensor4dDescriptor(ts_out, CUDNN_TENSOR_NHWC, CUDNN_DATA_FLOAT, 1, out_channels, height_B, width_B));
 
@@ -109,7 +121,7 @@ public:
                 ts_out,
                 d_B));
 
-        cudaMemcpy((void*)B, (void*)d_B, width_B * height_B * sizeof(Dtype), cudaMemcpyDeviceToHost);
+        cudaMemcpy((void*)tensor_B->data, (void*)d_B, width_B * height_B * sizeof(Dtype), cudaMemcpyDeviceToHost);
 
         // 释放cuDNN
         cudaFree(workspace);
@@ -134,7 +146,10 @@ public:
     pooling2d(const tuple<int,int>&kernel_sz, const int mode, const tuple<int,int>&padding={0,0}, const tuple<int,int>&strides={1,1}):
             kernel_size(kernel_sz),mode(mode), padding(padding),strides(strides){}
 
-    void forward(const Dtype* A, const Dtype* B, const int height_A, const int width_A, const int channels_A, int* height_B, int* width_B, int* channel_B){
+    void forward(tensor<Dtype>* tensor_A, tensor<Dtype>* tensor_B){
+        const int height_A=tensor_A->height, width_A=tensor_A->width,channels_A=tensor_A->channels;
+        Dtype *A=tensor_A->data;
+
         cudnnHandle_t h_cudnn;
         checkCUDNN(cudnnCreate(&h_cudnn));
 
@@ -156,9 +171,11 @@ public:
 
         // =================================================计算输出大小
         cudnnTensorDescriptor_t out_desc;
-        *height_B = (height_A-get<0>(kernel_size)+2*get<0>(padding))/get<0>(strides)+1;
-        *width_B = (width_A-get<1>(kernel_size)+2*get<1>(padding))/get<1>(strides)+1;
-        *channel_B = channels_A;
+        int height_B = (height_A-get<0>(kernel_size)+2*get<0>(padding))/get<0>(strides)+1;
+        int width_B = (width_A-get<1>(kernel_size)+2*get<1>(padding))/get<1>(strides)+1;
+        tensor_B->height=height_B;
+        tensor_B->width=width_B;
+        tensor_B->channels = channels_A;
 
         checkCUDNN(cudnnCreateTensorDescriptor(&out_desc));
         checkCUDNN(cudnnCreateTensorDescriptor(&out_desc,CUDNN_DATA_FLOAT, CUDNN_TENSOR_NHWC, 1, channels_A, height_B, width_B));
@@ -181,7 +198,7 @@ public:
                                        &beta,
                                        out_desc));
 
-        cudaMemcpy((void*)B, (void*)d_B, width_B * height_B * channels_A *sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy((void*)tensor_B->data, (void*)d_B, width_B * height_B * channels_A *sizeof(float), cudaMemcpyDeviceToHost);
 
         cudnnDestroyTensorDescriptor(in_desc);
         cudnnDestroyTensorDescriptor(out_desc);
@@ -200,7 +217,10 @@ public:
     fullyconnect(int in_c, int out_c, Dtype* weight, Dtype* bias):
             in_channels(in_c),out_channels(out_c),Weight(weight),Bias(bias){}
 
-    void forward(const Dtype* A, const Dtype* B, const int height_A, const int width_A){
+    void forward(tensor<Dtype>* tensor_A, tensor<Dtype>* tensor_B){
+        const int height_A=tensor_A->height, width_A=tensor_A->width;
+        Dtype *A=tensor_A->data;
+
         cudnnHandle_t h_cudnn;
         checkCUDNN(cudnnCreate(&h_cudnn));
 
@@ -281,7 +301,10 @@ public:
                 ts_out,
                 d_B));
 
-        cudaMemcpy((void*)B, (void*)d_B, 1 * 1 * out_channels * sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy((void*)tensor_B->data, (void*)d_B, 1 * 1 * out_channels * sizeof(float), cudaMemcpyDeviceToHost);
+        tensor_B->height=1;
+        tensor_B->width=1;
+        tensor_B->channels=out_channels;
 
         // 释放cuDNN
         cudaFree(workspace);
@@ -300,7 +323,10 @@ template<class Dtype> class Relu{
 public:
     Relu()= default;
 
-    void forward(const Dtype* A, const Dtype* B, const int height_A, const int width_A, const int channels_A){
+    void forward(tensor<Dtype>* tensor_A, tensor<Dtype>* tensor_B){
+        const int height_A=tensor_A->height, width_A=tensor_A->width, channels_A=tensor_A->channels;
+        Dtype *A=tensor_A->data;
+
         cudnnHandle_t h_cudnn;
         checkCUDNN(cudnnCreate(&h_cudnn));
 
@@ -330,7 +356,10 @@ public:
         // =================================================执行
         checkCUDNN(cudnnActivationForward(h_cudnn,acti_dec,&alpha,ts_in,d_A,&beta,ts_out,d_B));
 
-        cudaMemcpy((void*)B, (void*)d_B, width_A * height_A * sizeof(Dtype), cudaMemcpyDeviceToHost);
+        cudaMemcpy((void*)tensor_B->data, (void*)d_B, width_A * height_A * sizeof(Dtype), cudaMemcpyDeviceToHost);
+        tensor_B->height=height_A;
+        tensor_B->width=width_A;
+        tensor_B->channels=channels_A;
 
         // 释放cuDNN
         cudnnDestroyTensorDescriptor(ts_in);
@@ -343,7 +372,11 @@ public:
 template<class Dtype> class Add{
     Add()= default;
     // A+B=C
-    void forward(const Dtype* A, const Dtype* B, const Dtype* C, const int height, const int width, const int channels) {
+    void forward(tensor<Dtype>* tensor_A, tensor<Dtype>* tensor_B, tensor<Dtype>* tensor_C) {
+        const int height=tensor_A->height, width=tensor_A->width, channels=tensor_A->channels;
+        Dtype *A=tensor_A->data;
+        Dtype *B=tensor_B->data;
+
         cudnnHandle_t h_cudnn;
         cudnnCreate(&h_cudnn);
 
@@ -393,7 +426,10 @@ template<class Dtype> class Add{
                 ts_out,
                 d_C));
 
-        cudaMemcpy((void *) C, (void *) d_C, width * height * channels * sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy((void *) tensor_C->data, (void *) d_C, width * height * channels * sizeof(float), cudaMemcpyDeviceToHost);
+        tensor_C->height=height;
+        tensor_C->width=width;
+        tensor_C->channels=channels;
 
         // 释放cuDNN
         cudnnDestroyTensorDescriptor(ts_in_a);
@@ -428,9 +464,9 @@ public:
         add();
     };
 
-    Dtype* forward(Dtype* A, int height_A, int width_A, int* height_B, int* width_B, ){
-        Dtype* residual  = A;
-        Dtype* output, output2;//没有返回值为了节约所以交替使用了hhh 现在是第一个是输入，第二个是输出，需要按照具体类的实现改
+    tensor<Dtype>* forward(tensor<Dtype>* A){
+        tensor<Dtype>* residual  = A;
+        tensor<Dtype>* output, output2;//没有返回值为了节约所以交替使用了hhh 现在是第一个是输入，第二个是输出，需要按照具体类的实现改
 
         conv1.forward(A,output);
         relu.forward(output,output2);
@@ -441,4 +477,48 @@ public:
 
         return output;
     };
+};
+
+template<class Dtype> class Bottleneck{
+private:
+    int expansion = 4;
+
+    Dtype* Weight1,Bias1;
+    Dtype* Weight2,Bias2;
+    Dtype* Weight3,Bias3;
+    conv2d<Dtype> conv1,conv2,conv3;
+    Relu<Dtype> relu;
+    Add<Dtype> add;
+
+public:
+    ~Bottleneck(){};
+
+    Bottleneck(int _inplanes, int _planes, Dtype* weight1, Dtype* bias1, Dtype* weight2, Dtype* bias2, Dtype* weight3, Dtype* bias3,int _stride, int _groups=1,int _base_width=64,int _dilation=1):
+            Weight1(weight1),Bias1(bias1),Weight2(weight2),Bias2(bias2),Weight3(weight3),Bias3(bias3)
+    {
+//        int width = int(_planes*(_base_width/64.0))*_groups;
+        //初始化的参数应该改成现在类对应的
+        conv1(_inplanes,_planes,weight1,bias1,{3,3},{1,1},{1,1},{_stride,_stride});//3*3卷积 stride=_strinde ic=_inplanes oc=width
+        conv2(_planes,_planes,weight2,bias2,{3,3},{1,1},{1,1},{1,1});//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
+        conv3(_inplanes,_planes,weight3,bias3,{1,1},{1,1},{0,0},{_stride,_stride});//1*1 ic=width,oc=_planes*expansion
+        relu();
+        add();
+    };
+
+    tensor<Dtype>* forward(tensor<Dtype>* A){
+        Dtype* identity  = A;
+        Dtype* output,output2,output3;//没有返回值为了节约所以交替使用了hhh 现在是第一个是输入，第二个是输出，需要按照具体类的实现改
+
+        conv1.forward(A,output);
+        relu.forward(output2,output);
+        conv2.forward(output,output2);
+
+        conv3.forward(identity,output);
+
+        add.forward(output2,output,output3); //output3=output+output2
+        relu(output3,output);
+
+        return output;
+    };
+
 };

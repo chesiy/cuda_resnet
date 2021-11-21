@@ -29,6 +29,8 @@ public:
         layer4(256,256,w1,b1,w2,b2,1);
         neck_layer3(256,512,w1,b1,w2,b2,w3,b3,2);
         layer5(512,512,w1,b1,w2,b2,1);
+
+        avgpool
     }
 
     void forward(tensor<Dtype>* A, tensor<Dtype>* B){
@@ -38,9 +40,13 @@ public:
         maxpool.forward(tmp_out2,tmp_out1);
 
         tmp_out2 = layer1.forward(tmp_out1);
-        relu.forward(tmp_out2,tmp_out1);
-        tmp_out2=layer2.forward(tmp_out1);
-        relu.forward(tmp_out2,tmp_out1);
+        tmp_out1=layer2.forward(tmp_out2);
+        tmp_out2=neck_layer1(tmp_out1);
+        tmp_out1=layer3(tmp_out2);
+        tmp_out2=neck_layer2(tmp_out1);
+        tmp_out1=layer4(tmp_out2);
+        tmp_out2=neck_layer3(tmp_out1);
+        tmp_out1=layer5(tmp_out2);
 
     }
 

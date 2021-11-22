@@ -85,13 +85,10 @@
 		<Unit filename="D:/Google go/ParrallelProgramming/cudnn_resnet/blocks.cpp">
 			<Option target="cudnn_resnet"/>
 		</Unit>
-		<Unit filename="D:/Google go/ParrallelProgramming/cudnn_resnet/blocks.h">
-			<Option target="cudnn_resnet"/>
-		</Unit>
-		<Unit filename="D:/Google go/ParrallelProgramming/cudnn_resnet/cudnn.cpp">
-			<Option target="cudnn_resnet"/>
-		</Unit>
 		<Unit filename="D:/Google go/ParrallelProgramming/cudnn_resnet/main.cpp">
+			<Option target="cudnn_resnet"/>
+		</Unit>
+		<Unit filename="D:/Google go/ParrallelProgramming/cudnn_resnet/myblocks.cpp">
 			<Option target="cudnn_resnet"/>
 		</Unit>
 		<Unit filename="D:/Google go/ParrallelProgramming/cudnn_resnet/resnet.cpp">

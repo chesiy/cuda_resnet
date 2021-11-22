@@ -135,16 +135,15 @@ public:
 };
 
 
-template<class Dtype> class pooling2d {
+template<class Dtype> class maxpooling2d {
 private:
     tuple<int, int> kernel_size;
     tuple<int, int> padding;
     tuple<int, int> strides;
-    int mode; // **mode** can be "max"->0 or "avg_without_padding"->1
 
 public:
-    pooling2d(const tuple<int,int>&kernel_sz, const int mode, const tuple<int,int>&padding={0,0}, const tuple<int,int>&strides={1,1}):
-            kernel_size(kernel_sz),mode(mode), padding(padding),strides(strides){}
+    maxpooling2d(const tuple<int,int>&kernel_sz, const tuple<int,int>&padding={0,0}, const tuple<int,int>&strides={1,1}):
+            kernel_size(kernel_sz), padding(padding),strides(strides){}
 
     void forward(tensor<Dtype>* tensor_A, tensor<Dtype>* tensor_B){
         const int height_A=tensor_A->height, width_A=tensor_A->width,channels_A=tensor_A->channels;
@@ -156,14 +155,8 @@ public:
         cudnnPoolingDescriptor_t pooling_desc;
 
         checkCUDNN(cudnnCreatePoolingDescriptor(&pooling_desc));
-        if(mode==0){
-            checkCUDNN(cudnnSetPooling2dDescriptor(pooling_desc,CUDNN_POOLING_MAX,CUDNN_NOT_PROPAGATE_NAN,get<0>(kernel_size),
+        checkCUDNN(cudnnSetPooling2dDescriptor(pooling_desc,CUDNN_POOLING_MAX,CUDNN_NOT_PROPAGATE_NAN,get<0>(kernel_size),
                                                    get<1>(kernel_size),get<0>(padding),get<1>(padding),get<0>(strides),get<1>(strides)));
-        }else
-        if(mode==1){
-            checkCUDNN(cudnnSetPooling2dDescriptor(pooling_desc,CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING,CUDNN_NOT_PROPAGATE_NAN,get<0>(kernel_size),
-                                                   get<1>(kernel_size),get<0>(padding),get<1>(padding),get<0>(strides),get<1>(strides)));
-        }
 
         cudnnTensorDescriptor_t in_desc;
         checkCUDNN(cudnnCreateTensorDescriptor(&in_desc));
@@ -206,6 +199,63 @@ public:
     }
 
 };
+
+template<class Dtype> class GlobalAvgpooling{
+public:
+    GlobalAvgpooling()= default;
+    void forward(tensor<Dtype>* tensor_A, tensor<Dtype>* tensor_B){
+        const int height_A=tensor_A->height, width_A=tensor_A->width,channels_A=tensor_A->channels;
+        Dtype *A=tensor_A->data;
+
+        cudnnHandle_t h_cudnn;
+        checkCUDNN(cudnnCreate(&h_cudnn));
+
+        cudnnPoolingDescriptor_t pooling_desc;
+
+        checkCUDNN(cudnnCreatePoolingDescriptor(&pooling_desc));
+        checkCUDNN(cudnnSetPooling2dDescriptor(pooling_desc,CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING,CUDNN_NOT_PROPAGATE_NAN,height_A,width_A,0,0,1,1));
+
+        cudnnTensorDescriptor_t in_desc;
+        checkCUDNN(cudnnCreateTensorDescriptor(&in_desc));
+        checkCUDNN(cudnnCreateTensorDescriptor(&in_desc,CUDNN_DATA_FLOAT, CUDNN_TENSOR_NHWC, 1, channels_A, height_A, width_A));
+
+        // =================================================计算输出大小
+        cudnnTensorDescriptor_t out_desc;
+        int height_B = 1;
+        int width_B = 1;
+        tensor_B->height=1;
+        tensor_B->width=1;
+        tensor_B->channels = channels_A;
+
+        checkCUDNN(cudnnCreateTensorDescriptor(&out_desc));
+        checkCUDNN(cudnnCreateTensorDescriptor(&out_desc,CUDNN_DATA_FLOAT, CUDNN_TENSOR_NHWC, 1, channels_A, height_B, width_B));
+
+        // =================================================线性因子
+        float alpha = 1.0f;
+        float beta  = -100.0f;
+        // =================================================数据准备
+        const Dtype* d_A, d_B;
+        cudaMalloc((void**)&d_A, width_A * height_A * channels_A * sizeof(float));
+        cudaMalloc((void**)&d_B, width_B * height_B * channels_A * sizeof(float));
+
+        cudaMemcpy((void*)d_A, (void*)A,width_A * height_A * channels_A * sizeof(float), cudaMemcpyHostToDevice);
+        // =================================================执行
+        checkCUDNN(cudnnPoolingForward(h_cudnn,
+                                       pooling_desc,
+                                       &alpha,
+                                       in_desc,
+                                       A,
+                                       &beta,
+                                       out_desc));
+
+        cudaMemcpy((void*)tensor_B->data, (void*)d_B, width_B * height_B * channels_A *sizeof(float), cudaMemcpyDeviceToHost);
+
+        cudnnDestroyTensorDescriptor(in_desc);
+        cudnnDestroyTensorDescriptor(out_desc);
+        cudnnDestroy(h_cudnn);
+    }
+};
+
 
 template<class Dtype> class fullyconnect {
     int in_channels;

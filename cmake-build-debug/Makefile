@@ -142,30 +142,6 @@ blocks.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\blocks.cpp.s
 .PHONY : blocks.cpp.s
 
-cudnn.obj: cudnn.cpp.obj
-.PHONY : cudnn.obj
-
-# target to build an object file
-cudnn.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\cudnn.cpp.obj
-.PHONY : cudnn.cpp.obj
-
-cudnn.i: cudnn.cpp.i
-.PHONY : cudnn.i
-
-# target to preprocess a source file
-cudnn.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\cudnn.cpp.i
-.PHONY : cudnn.cpp.i
-
-cudnn.s: cudnn.cpp.s
-.PHONY : cudnn.s
-
-# target to generate assembly for a file
-cudnn.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\cudnn.cpp.s
-.PHONY : cudnn.cpp.s
-
 main.obj: main.cpp.obj
 .PHONY : main.obj
 
@@ -189,6 +165,30 @@ main.s: main.cpp.s
 main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\main.cpp.s
 .PHONY : main.cpp.s
+
+myblocks.obj: myblocks.cpp.obj
+.PHONY : myblocks.obj
+
+# target to build an object file
+myblocks.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\myblocks.cpp.obj
+.PHONY : myblocks.cpp.obj
+
+myblocks.i: myblocks.cpp.i
+.PHONY : myblocks.i
+
+# target to preprocess a source file
+myblocks.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\myblocks.cpp.i
+.PHONY : myblocks.cpp.i
+
+myblocks.s: myblocks.cpp.s
+.PHONY : myblocks.s
+
+# target to generate assembly for a file
+myblocks.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\myblocks.cpp.s
+.PHONY : myblocks.cpp.s
 
 resnet.obj: resnet.cpp.obj
 .PHONY : resnet.obj
@@ -250,12 +250,12 @@ help:
 	@echo ... blocks.obj
 	@echo ... blocks.i
 	@echo ... blocks.s
-	@echo ... cudnn.obj
-	@echo ... cudnn.i
-	@echo ... cudnn.s
 	@echo ... main.obj
 	@echo ... main.i
 	@echo ... main.s
+	@echo ... myblocks.obj
+	@echo ... myblocks.i
+	@echo ... myblocks.s
 	@echo ... resnet.obj
 	@echo ... resnet.i
 	@echo ... resnet.s

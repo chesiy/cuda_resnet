@@ -9,8 +9,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
   "D:/Google go/ParrallelProgramming/cudnn_resnet/blocks.cpp" "D:/Google go/ParrallelProgramming/cudnn_resnet/cmake-build-debug/CMakeFiles/cudnn_resnet.dir/blocks.cpp.obj"
-  "D:/Google go/ParrallelProgramming/cudnn_resnet/cudnn.cpp" "D:/Google go/ParrallelProgramming/cudnn_resnet/cmake-build-debug/CMakeFiles/cudnn_resnet.dir/cudnn.cpp.obj"
   "D:/Google go/ParrallelProgramming/cudnn_resnet/main.cpp" "D:/Google go/ParrallelProgramming/cudnn_resnet/cmake-build-debug/CMakeFiles/cudnn_resnet.dir/main.cpp.obj"
+  "D:/Google go/ParrallelProgramming/cudnn_resnet/myblocks.cpp" "D:/Google go/ParrallelProgramming/cudnn_resnet/cmake-build-debug/CMakeFiles/cudnn_resnet.dir/myblocks.cpp.obj"
   "D:/Google go/ParrallelProgramming/cudnn_resnet/resnet.cpp" "D:/Google go/ParrallelProgramming/cudnn_resnet/cmake-build-debug/CMakeFiles/cudnn_resnet.dir/resnet.cpp.obj"
   "D:/Google go/ParrallelProgramming/cudnn_resnet/try.cpp" "D:/Google go/ParrallelProgramming/cudnn_resnet/cmake-build-debug/CMakeFiles/cudnn_resnet.dir/try.cpp.obj"
   )

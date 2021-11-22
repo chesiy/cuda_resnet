@@ -1,7 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/cudnn_resnet.dir/blocks.cpp.obj"
-  "CMakeFiles/cudnn_resnet.dir/cudnn.cpp.obj"
   "CMakeFiles/cudnn_resnet.dir/main.cpp.obj"
+  "CMakeFiles/cudnn_resnet.dir/myblocks.cpp.obj"
   "CMakeFiles/cudnn_resnet.dir/resnet.cpp.obj"
   "CMakeFiles/cudnn_resnet.dir/try.cpp.obj"
   "cudnn_resnet.exe"

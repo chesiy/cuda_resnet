@@ -92,7 +92,7 @@ public:
         cudaMemcpy((void*)d_A, (void*)A, batch * width_A * height_A * channels_A * sizeof(float), cudaMemcpyHostToDevice);
         // =================================================执行
         int nthreads = batch * width_B * height_B * channels_A;
-        MaxPoolForward(d_A,d_B,0,NULL, nthreads, channels_A, height_A, width_A, height_B, width_B,
+        MaxPoolForward(d_A,d_B, nthreads, channels_A, height_A, width_A, height_B, width_B,
                        get<0>(kernel_size), get<1>(kernel_size),get<0>(strides),get<1>(strides),get<0>(padding),get<1>(padding));
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B, batch * width_B * height_B * channels_A *sizeof(float), cudaMemcpyDeviceToHost);
@@ -123,7 +123,7 @@ public:
         cudaMemcpy((void*)d_A, (void*)A, batch * width_A * height_A * channels_A * sizeof(float), cudaMemcpyHostToDevice);
         // =================================================执行
         int nthreads = batch * width_B * height_B * channels_A;
-        AvgPoolForward(d_A,d_B,0,NULL,nthreads,channels_A,height_A,width_A,height_B,width_B,
+        AvgPoolForward(d_A,d_B, nthreads,channels_A,height_A,width_A,height_B,width_B,
                        height_A, width_A,0,0,1,1);
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B, batch * width_B * height_B * channels_A *sizeof(float), cudaMemcpyDeviceToHost);
@@ -148,7 +148,8 @@ public:
         cudaMemcpy((void*)d_A, (void*)A, batch * width_A * height_A * sizeof(Dtype), cudaMemcpyHostToDevice);
 
         // =================================================执行
-        relu(d_A,d_B,width_A,height_A);
+        int nthread = width_A*height_A;
+        relu(d_A,d_B,nthread);
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B, batch * width_A * height_A * sizeof(Dtype), cudaMemcpyDeviceToHost);
         tensor_B->height=height_A;
@@ -175,7 +176,8 @@ template<class Dtype> class Add{
         cudaMemcpy((void *) d_A, (void *) A, batch * width * height * channels * sizeof(float), cudaMemcpyHostToDevice);
         cudaMemcpy((void *) d_B, (void *) B, batch * width * height * channels * sizeof(float), cudaMemcpyHostToDevice);
 
-        add(d_A, d_B, d_C,width,height);
+        int nthread = width*height;
+        add(d_A, d_B, d_C,nthread);
 
         cudaMemcpy((void *) tensor_C->data, (void *) d_C, batch * width * height * channels * sizeof(float), cudaMemcpyDeviceToHost);
         tensor_C->height=height;

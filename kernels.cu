@@ -44,7 +44,7 @@ nthreads- the number of top_data
 
 
 template<typename T>
-__global__ void MaxPoolForward(const T* bottom_data, const T* top_data, int mask, const T* top_mask,
+__global__ void MaxPoolForward(const T* bottom_data, const T* top_data,
 const int nthreads, const int channels, const int height, const int width,
 const int pooled_height, const int pooled_width,const int kernel_h,const int kernel_w,
 const int stride_h, const int stride_w, const int pad_h, const int pad_w)
@@ -78,20 +78,13 @@ nthreads- the number of top_data
 			}
 		}
 		top_data[index]=maxval;
-		if(mask){
-			mask[index]=maxidx;
-		}else{
-			top_mask[index]=maxidx;
-		}
-		
 	}
 }
 
 template<typename T>
-__global__ void relu(const T* A, T* B,const int WA, const int HA)
+__global__ void relu(const T* A, T* B,const int nthreads)
 //A-input B-output
 {
-	int nthreads = WA * HA;
 	CUDA_KERNEL_LOOP(index,nthreads){
 		if(A[index]>0){
 			B[index]=A[index];
@@ -103,10 +96,9 @@ __global__ void relu(const T* A, T* B,const int WA, const int HA)
 }
 
 template<typename T>
-__global__ void add(const T* A,const T* B, T* C,const int W,const int H)
+__global__ void add(const T* A,const T* B, T* C,const int nthreads)
 //A-input B-input C-output
 {
-	int nthreads =  W * H;
 	CUDA_KERNEL_LOOP(index,nthreads){
 		C[index]=A[index]+B[index];
 	}
@@ -114,7 +106,7 @@ __global__ void add(const T* A,const T* B, T* C,const int W,const int H)
 
 
 template<typename T>
-__global__ void AvgPoolForward(const T* bottom_data, const T* top_data, int mask, const T* top_mask,
+__global__ void AvgPoolForward(const T* bottom_data, const T* top_data,
 const int nthreads, const int channels, const int height, const int width,
 const int pooled_height, const int pooled_widht,const int kernel_h,const int kernel_w,
 const int stride_h, const int stride_w, const int pad_h, const int pad_w)
@@ -152,12 +144,6 @@ nthreads- the number of top_data
 		}
 		
 		top_data[index]=tmp/((hend-hstart)*(wend-wstart));
-		
-		if(mask){
-			mask[index]=maxidx;
-		}else{
-			top_mask[index]=maxidx;
-		}
 		
 	}
 }

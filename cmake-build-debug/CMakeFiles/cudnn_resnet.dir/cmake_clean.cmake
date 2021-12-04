@@ -1,13 +1,11 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/cudnn_resnet.dir/BasicBlocks.cpp.obj"
-  "CMakeFiles/cudnn_resnet.dir/block.cpp.obj"
-  "CMakeFiles/cudnn_resnet.dir/main.cpp.obj"
-  "CMakeFiles/cudnn_resnet.dir/resnet.cpp.obj"
-  "CMakeFiles/cudnn_resnet.dir/try.cpp.obj"
-  "cudnn_resnet.exe"
-  "cudnn_resnet.exe.manifest"
-  "cudnn_resnet.lib"
+  "CMakeFiles/cudnn_resnet.dir/try.cpp.o"
+  "CMakeFiles/cudnn_resnet.dir/resnet.cpp.o"
+  "CMakeFiles/cudnn_resnet.dir/main.cpp.o"
+  "CMakeFiles/cudnn_resnet.dir/block.cpp.o"
+  "CMakeFiles/cudnn_resnet.dir/test.cpp.o"
   "cudnn_resnet.pdb"
+  "cudnn_resnet"
 )
 
 # Per-language clean rules from dependency scanning.

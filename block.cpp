@@ -13,6 +13,7 @@ template<class Dtype> struct tensor{
     Dtype* data;
     int width,height,channels,batch;
     //tensor shape: (batch, channels, width, height)
+    tensor(Dtype* d, int w, int h, int c, int batch):data(d),width(w),height(h),channels(c),batch(batch){}
 };
 
 template<class Dtype> class conv2d{
@@ -70,7 +71,7 @@ private:
     tuple<int, int> strides;
 
 public:
-    maxpooling2d(const tuple<int,int>&kernel_sz, const tuple<int,int>&padding={0,0}, const tuple<int,int>&strides={1,1}):
+    maxpooling2d(tuple<int,int>& kernel_sz, tuple<int,int>& padding, tuple<int,int>&strides):
             kernel_size(kernel_sz), padding(padding),strides(strides){}
 
     void forward(tensor<Dtype>* tensor_A, tensor<Dtype>* tensor_B){
@@ -85,7 +86,7 @@ public:
         tensor_B->width=width_B;
         tensor_B->channels = channels_A;
 
-        const Dtype* d_A, d_B;
+        Dtype* d_A, d_B;
         cudaMalloc((void**)&d_A, batch * width_A * height_A * channels_A * sizeof(float));
         cudaMalloc((void**)&d_B, batch * width_B * height_B * channels_A * sizeof(float));
 
@@ -116,7 +117,7 @@ public:
         tensor_B->width=1;
         tensor_B->channels = channels_A;
 
-        const Dtype* d_A, d_B;
+        Dtype* d_A, d_B;
         cudaMalloc((void**)&d_A, batch * width_A * height_A * channels_A * sizeof(float));
         cudaMalloc((void**)&d_B, batch * width_B * height_B * channels_A * sizeof(float));
 
@@ -141,7 +142,7 @@ public:
         Dtype *A=tensor_A->data;
         const int batch = tensor_A->batch;
 
-        const Dtype* d_A, d_B, d_K;
+        Dtype* d_A, d_B, d_K;
         cudaMalloc((void**)&d_A, batch * width_A * height_A * sizeof(Dtype));
         cudaMalloc((void**)&d_B, batch * width_A * height_A * sizeof(Dtype));
 
@@ -168,7 +169,7 @@ template<class Dtype> class Add{
         Dtype *B=tensor_B->data;
         const int batch = tensor_A->batch;
 
-        const Dtype *d_A, d_B, d_C;
+        Dtype *d_A, d_B, d_C;
         cudaMalloc((void **) &d_A, batch * width * height * channels * sizeof(float));
         cudaMalloc((void **) &d_B, batch * width * height * channels * sizeof(float));
         cudaMalloc((void **) &d_C, batch * width * height * channels * sizeof(float));

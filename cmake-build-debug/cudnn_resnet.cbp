@@ -82,13 +82,13 @@
 				</MakeCommands>
 			</Target>
 		</Build>
-		<Unit filename="D:/Google go/ParrallelProgramming/cudnn_resnet/blocks.cpp">
+		<Unit filename="D:/Google go/ParrallelProgramming/cudnn_resnet/BasicBlocks.cpp">
+			<Option target="cudnn_resnet"/>
+		</Unit>
+		<Unit filename="D:/Google go/ParrallelProgramming/cudnn_resnet/block.cpp">
 			<Option target="cudnn_resnet"/>
 		</Unit>
 		<Unit filename="D:/Google go/ParrallelProgramming/cudnn_resnet/main.cpp">
-			<Option target="cudnn_resnet"/>
-		</Unit>
-		<Unit filename="D:/Google go/ParrallelProgramming/cudnn_resnet/myblocks.cpp">
 			<Option target="cudnn_resnet"/>
 		</Unit>
 		<Unit filename="D:/Google go/ParrallelProgramming/cudnn_resnet/resnet.cpp">

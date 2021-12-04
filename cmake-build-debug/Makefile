@@ -118,29 +118,53 @@ cudnn_resnet\fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\build
 .PHONY : cudnn_resnet\fast
 
-blocks.obj: blocks.cpp.obj
-.PHONY : blocks.obj
+BasicBlocks.obj: BasicBlocks.cpp.obj
+.PHONY : BasicBlocks.obj
 
 # target to build an object file
-blocks.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\blocks.cpp.obj
-.PHONY : blocks.cpp.obj
+BasicBlocks.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\BasicBlocks.cpp.obj
+.PHONY : BasicBlocks.cpp.obj
 
-blocks.i: blocks.cpp.i
-.PHONY : blocks.i
+BasicBlocks.i: BasicBlocks.cpp.i
+.PHONY : BasicBlocks.i
 
 # target to preprocess a source file
-blocks.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\blocks.cpp.i
-.PHONY : blocks.cpp.i
+BasicBlocks.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\BasicBlocks.cpp.i
+.PHONY : BasicBlocks.cpp.i
 
-blocks.s: blocks.cpp.s
-.PHONY : blocks.s
+BasicBlocks.s: BasicBlocks.cpp.s
+.PHONY : BasicBlocks.s
 
 # target to generate assembly for a file
-blocks.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\blocks.cpp.s
-.PHONY : blocks.cpp.s
+BasicBlocks.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\BasicBlocks.cpp.s
+.PHONY : BasicBlocks.cpp.s
+
+block.obj: block.cpp.obj
+.PHONY : block.obj
+
+# target to build an object file
+block.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\block.cpp.obj
+.PHONY : block.cpp.obj
+
+block.i: block.cpp.i
+.PHONY : block.i
+
+# target to preprocess a source file
+block.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\block.cpp.i
+.PHONY : block.cpp.i
+
+block.s: block.cpp.s
+.PHONY : block.s
+
+# target to generate assembly for a file
+block.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\block.cpp.s
+.PHONY : block.cpp.s
 
 main.obj: main.cpp.obj
 .PHONY : main.obj
@@ -165,30 +189,6 @@ main.s: main.cpp.s
 main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\main.cpp.s
 .PHONY : main.cpp.s
-
-myblocks.obj: myblocks.cpp.obj
-.PHONY : myblocks.obj
-
-# target to build an object file
-myblocks.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\myblocks.cpp.obj
-.PHONY : myblocks.cpp.obj
-
-myblocks.i: myblocks.cpp.i
-.PHONY : myblocks.i
-
-# target to preprocess a source file
-myblocks.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\myblocks.cpp.i
-.PHONY : myblocks.cpp.i
-
-myblocks.s: myblocks.cpp.s
-.PHONY : myblocks.s
-
-# target to generate assembly for a file
-myblocks.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\cudnn_resnet.dir\build.make /nologo -$(MAKEFLAGS) CMakeFiles\cudnn_resnet.dir\myblocks.cpp.s
-.PHONY : myblocks.cpp.s
 
 resnet.obj: resnet.cpp.obj
 .PHONY : resnet.obj
@@ -247,15 +247,15 @@ help:
 	@echo ... edit_cache
 	@echo ... rebuild_cache
 	@echo ... cudnn_resnet
-	@echo ... blocks.obj
-	@echo ... blocks.i
-	@echo ... blocks.s
+	@echo ... BasicBlocks.obj
+	@echo ... BasicBlocks.i
+	@echo ... BasicBlocks.s
+	@echo ... block.obj
+	@echo ... block.i
+	@echo ... block.s
 	@echo ... main.obj
 	@echo ... main.i
 	@echo ... main.s
-	@echo ... myblocks.obj
-	@echo ... myblocks.i
-	@echo ... myblocks.s
 	@echo ... resnet.obj
 	@echo ... resnet.i
 	@echo ... resnet.s

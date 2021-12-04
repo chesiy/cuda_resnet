@@ -74,28 +74,9 @@ CMakeFiles\cudnn_resnet.dir\try.cpp.s: cmake_force
  /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoNUL /FAs /FaCMakeFiles\cudnn_resnet.dir\try.cpp.s /c "D:\Google go\ParrallelProgramming\cudnn_resnet\try.cpp"
 <<
 
-CMakeFiles\cudnn_resnet.dir\blocks.cpp.obj: CMakeFiles\cudnn_resnet.dir\flags.make
-CMakeFiles\cudnn_resnet.dir\blocks.cpp.obj: ..\blocks.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="D:\Google go\ParrallelProgramming\cudnn_resnet\cmake-build-debug\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/cudnn_resnet.dir/blocks.cpp.obj"
-	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe @<<
- /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoCMakeFiles\cudnn_resnet.dir\blocks.cpp.obj /FdCMakeFiles\cudnn_resnet.dir\ /FS -c "D:\Google go\ParrallelProgramming\cudnn_resnet\blocks.cpp"
-<<
-
-CMakeFiles\cudnn_resnet.dir\blocks.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cudnn_resnet.dir/blocks.cpp.i"
-	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe > CMakeFiles\cudnn_resnet.dir\blocks.cpp.i @<<
- /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\Google go\ParrallelProgramming\cudnn_resnet\blocks.cpp"
-<<
-
-CMakeFiles\cudnn_resnet.dir\blocks.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cudnn_resnet.dir/blocks.cpp.s"
-	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe @<<
- /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoNUL /FAs /FaCMakeFiles\cudnn_resnet.dir\blocks.cpp.s /c "D:\Google go\ParrallelProgramming\cudnn_resnet\blocks.cpp"
-<<
-
 CMakeFiles\cudnn_resnet.dir\resnet.cpp.obj: CMakeFiles\cudnn_resnet.dir\flags.make
 CMakeFiles\cudnn_resnet.dir\resnet.cpp.obj: ..\resnet.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="D:\Google go\ParrallelProgramming\cudnn_resnet\cmake-build-debug\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/cudnn_resnet.dir/resnet.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="D:\Google go\ParrallelProgramming\cudnn_resnet\cmake-build-debug\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/cudnn_resnet.dir/resnet.cpp.obj"
 	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe @<<
  /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoCMakeFiles\cudnn_resnet.dir\resnet.cpp.obj /FdCMakeFiles\cudnn_resnet.dir\ /FS -c "D:\Google go\ParrallelProgramming\cudnn_resnet\resnet.cpp"
 <<
@@ -112,28 +93,9 @@ CMakeFiles\cudnn_resnet.dir\resnet.cpp.s: cmake_force
  /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoNUL /FAs /FaCMakeFiles\cudnn_resnet.dir\resnet.cpp.s /c "D:\Google go\ParrallelProgramming\cudnn_resnet\resnet.cpp"
 <<
 
-CMakeFiles\cudnn_resnet.dir\myblocks.cpp.obj: CMakeFiles\cudnn_resnet.dir\flags.make
-CMakeFiles\cudnn_resnet.dir\myblocks.cpp.obj: ..\myblocks.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="D:\Google go\ParrallelProgramming\cudnn_resnet\cmake-build-debug\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/cudnn_resnet.dir/myblocks.cpp.obj"
-	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe @<<
- /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoCMakeFiles\cudnn_resnet.dir\myblocks.cpp.obj /FdCMakeFiles\cudnn_resnet.dir\ /FS -c "D:\Google go\ParrallelProgramming\cudnn_resnet\myblocks.cpp"
-<<
-
-CMakeFiles\cudnn_resnet.dir\myblocks.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cudnn_resnet.dir/myblocks.cpp.i"
-	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe > CMakeFiles\cudnn_resnet.dir\myblocks.cpp.i @<<
- /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\Google go\ParrallelProgramming\cudnn_resnet\myblocks.cpp"
-<<
-
-CMakeFiles\cudnn_resnet.dir\myblocks.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cudnn_resnet.dir/myblocks.cpp.s"
-	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe @<<
- /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoNUL /FAs /FaCMakeFiles\cudnn_resnet.dir\myblocks.cpp.s /c "D:\Google go\ParrallelProgramming\cudnn_resnet\myblocks.cpp"
-<<
-
 CMakeFiles\cudnn_resnet.dir\main.cpp.obj: CMakeFiles\cudnn_resnet.dir\flags.make
 CMakeFiles\cudnn_resnet.dir\main.cpp.obj: ..\main.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="D:\Google go\ParrallelProgramming\cudnn_resnet\cmake-build-debug\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/cudnn_resnet.dir/main.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="D:\Google go\ParrallelProgramming\cudnn_resnet\cmake-build-debug\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/cudnn_resnet.dir/main.cpp.obj"
 	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe @<<
  /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoCMakeFiles\cudnn_resnet.dir\main.cpp.obj /FdCMakeFiles\cudnn_resnet.dir\ /FS -c "D:\Google go\ParrallelProgramming\cudnn_resnet\main.cpp"
 <<
@@ -150,22 +112,60 @@ CMakeFiles\cudnn_resnet.dir\main.cpp.s: cmake_force
  /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoNUL /FAs /FaCMakeFiles\cudnn_resnet.dir\main.cpp.s /c "D:\Google go\ParrallelProgramming\cudnn_resnet\main.cpp"
 <<
 
+CMakeFiles\cudnn_resnet.dir\block.cpp.obj: CMakeFiles\cudnn_resnet.dir\flags.make
+CMakeFiles\cudnn_resnet.dir\block.cpp.obj: ..\block.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="D:\Google go\ParrallelProgramming\cudnn_resnet\cmake-build-debug\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/cudnn_resnet.dir/block.cpp.obj"
+	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe @<<
+ /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoCMakeFiles\cudnn_resnet.dir\block.cpp.obj /FdCMakeFiles\cudnn_resnet.dir\ /FS -c "D:\Google go\ParrallelProgramming\cudnn_resnet\block.cpp"
+<<
+
+CMakeFiles\cudnn_resnet.dir\block.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cudnn_resnet.dir/block.cpp.i"
+	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe > CMakeFiles\cudnn_resnet.dir\block.cpp.i @<<
+ /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\Google go\ParrallelProgramming\cudnn_resnet\block.cpp"
+<<
+
+CMakeFiles\cudnn_resnet.dir\block.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cudnn_resnet.dir/block.cpp.s"
+	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe @<<
+ /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoNUL /FAs /FaCMakeFiles\cudnn_resnet.dir\block.cpp.s /c "D:\Google go\ParrallelProgramming\cudnn_resnet\block.cpp"
+<<
+
+CMakeFiles\cudnn_resnet.dir\BasicBlocks.cpp.obj: CMakeFiles\cudnn_resnet.dir\flags.make
+CMakeFiles\cudnn_resnet.dir\BasicBlocks.cpp.obj: ..\BasicBlocks.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir="D:\Google go\ParrallelProgramming\cudnn_resnet\cmake-build-debug\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/cudnn_resnet.dir/BasicBlocks.cpp.obj"
+	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe @<<
+ /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoCMakeFiles\cudnn_resnet.dir\BasicBlocks.cpp.obj /FdCMakeFiles\cudnn_resnet.dir\ /FS -c "D:\Google go\ParrallelProgramming\cudnn_resnet\BasicBlocks.cpp"
+<<
+
+CMakeFiles\cudnn_resnet.dir\BasicBlocks.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cudnn_resnet.dir/BasicBlocks.cpp.i"
+	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe > CMakeFiles\cudnn_resnet.dir\BasicBlocks.cpp.i @<<
+ /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E "D:\Google go\ParrallelProgramming\cudnn_resnet\BasicBlocks.cpp"
+<<
+
+CMakeFiles\cudnn_resnet.dir\BasicBlocks.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cudnn_resnet.dir/BasicBlocks.cpp.s"
+	D:\VisualStudio\VC\Tools\MSVC\14.29.30133\bin\Hostx86\x86\cl.exe @<<
+ /nologo /TP $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) /FoNUL /FAs /FaCMakeFiles\cudnn_resnet.dir\BasicBlocks.cpp.s /c "D:\Google go\ParrallelProgramming\cudnn_resnet\BasicBlocks.cpp"
+<<
+
 # Object files for target cudnn_resnet
 cudnn_resnet_OBJECTS = \
 "CMakeFiles\cudnn_resnet.dir\try.cpp.obj" \
-"CMakeFiles\cudnn_resnet.dir\blocks.cpp.obj" \
 "CMakeFiles\cudnn_resnet.dir\resnet.cpp.obj" \
-"CMakeFiles\cudnn_resnet.dir\myblocks.cpp.obj" \
-"CMakeFiles\cudnn_resnet.dir\main.cpp.obj"
+"CMakeFiles\cudnn_resnet.dir\main.cpp.obj" \
+"CMakeFiles\cudnn_resnet.dir\block.cpp.obj" \
+"CMakeFiles\cudnn_resnet.dir\BasicBlocks.cpp.obj"
 
 # External object files for target cudnn_resnet
 cudnn_resnet_EXTERNAL_OBJECTS =
 
 cudnn_resnet.exe: CMakeFiles\cudnn_resnet.dir\try.cpp.obj
-cudnn_resnet.exe: CMakeFiles\cudnn_resnet.dir\blocks.cpp.obj
 cudnn_resnet.exe: CMakeFiles\cudnn_resnet.dir\resnet.cpp.obj
-cudnn_resnet.exe: CMakeFiles\cudnn_resnet.dir\myblocks.cpp.obj
 cudnn_resnet.exe: CMakeFiles\cudnn_resnet.dir\main.cpp.obj
+cudnn_resnet.exe: CMakeFiles\cudnn_resnet.dir\block.cpp.obj
+cudnn_resnet.exe: CMakeFiles\cudnn_resnet.dir\BasicBlocks.cpp.obj
 cudnn_resnet.exe: CMakeFiles\cudnn_resnet.dir\build.make
 cudnn_resnet.exe: CMakeFiles\cudnn_resnet.dir\objects1.rsp
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir="D:\Google go\ParrallelProgramming\cudnn_resnet\cmake-build-debug\CMakeFiles" --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX executable cudnn_resnet.exe"

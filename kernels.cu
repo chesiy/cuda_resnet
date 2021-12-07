@@ -127,12 +127,14 @@ nthreads- the number of top_data
 
 // write two most trivial algorithms
 // in further use, out_numrow and out_numcol should be calculated first to save time
-__global__ void ConvolutionForward(float* A_b, float*kernel, float*C_b, float* bias, int nthreads,
-                                   int batch_size, int in_numrow, int in_numcol, int in_channels, int kernel_numrow, int kernel_numcol, int out_channels,
-                                   int row_padding=0, int col_padding=0, int stride_row=1, int stride_col=1)
+__global__ void ConvolutionForward(float* A_b, float*C_b, float*kernel, float* bias, int nthreads,
+                                   int batch_size, int in_numrow, int in_numcol, int in_channels,
+                                   int out_numrow, int out_numcol, int out_channels,
+                                   int kernel_numrow, int kernel_numcol,
+                                   int stride_row=1, int stride_col=1,int row_padding=0, int col_padding=0)
 {
-    int out_numrow = (in_numrow + row_padding*2 - kernel_numrow) / stride_row + 1;
-    int out_numcol = (in_numcol + col_padding*2 - kernel_numcol) / stride_col + 1;
+//    int out_numrow = (in_numrow + row_padding*2 - kernel_numrow) / stride_row + 1;
+//    int out_numcol = (in_numcol + col_padding*2 - kernel_numcol) / stride_col + 1;
     // A_b: batch_size x in_channels x in_numrow x in_numcol
     // kernel: out_channels x in_channels x kernel_numrow x kernel_numcol
     // B_b: batch_size x out_channels x out_numrow x out_numcol

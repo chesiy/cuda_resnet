@@ -41,20 +41,16 @@ void print_tensor(tensor<Dtype>* Ts){
 
 int main()
 {
-    printf("Program start!\n");
+    printf("Test start!\n");
 
     int x = 16;
     int y = 16;
 //    int z = 1024;
-    printf("before malloc??? %lu\n", sizeof(float)* x * y);
 
     float *M = (float*)malloc(sizeof(float)*x * y);
-//    N = (float*)malloc(sizeof(float)* y * z);
-//    Pg = (float*)malloc(sizeof(float)* x * z); //保存GPU计算结果
 
     srand(0);
     matgen(M, x, y);			//产生矩阵M
-//    matgen(N, y, z);			//产生矩阵N
     printf("M ok\n");
     double timeStart, timeEnd;	//定义时间，求时间差用
     timeStart = clock();
@@ -67,10 +63,25 @@ int main()
     tuple<int,int> *kernel=new tuple<int,int>{2,2};
     tuple<int,int> *padding=new tuple<int,int>{0,0};
     tuple<int,int> *stride=new tuple<int,int>{1,1};
-    printf("before pooling\n");
-    maxpooling2d<float> mxp{*kernel, *padding, *stride};
-    printf("mxp ok\n");
-    mxp.forward(A,B);
+    tuple<int,int> *dialations=new tuple<int,int>{1,1};
+
+    /// ====== Test MaxPooling ======
+//    printf("before pooling\n");
+//    maxpooling2d<float> mxp{*kernel, *padding, *stride};
+//    printf("mxp ok\n");
+//    mxp.forward(A,B);
+
+    /// ====== Test Convolution ======
+    printf("before conv\n");
+    int in_channel=2, out_channel=4;
+    float *W = (float*)malloc(sizeof(float)* in_channel* out_channel * get<0>(*kernel)*get<1>(*kernel));
+    matgen(W, in_channel* out_channel, get<0>(*kernel)*get<1>(*kernel));
+    float *Bias = (float*)malloc(sizeof(float)* out_channel);
+    matgen(Bias, out_channel,1);
+
+    conv2d<float> conv{2,4, W, Bias,*kernel, *dialations, *padding, *stride};
+    printf("conv ok\n");
+    conv.forward(A,B);
 
     printf("B: %d %d %d %d\n",B->height,B->width,B->channels,B->batch);
     print_tensor<float>(B);

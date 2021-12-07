@@ -31,7 +31,7 @@ public:
     conv2d(int in_c, int out_c, Dtype* weight, Dtype* bias, const tuple<int,int>&kernel_sz, const tuple<int,int> &dialations, const tuple<int,int>&padding, const tuple<int,int>&strides):
             in_channels(in_c),out_channels(out_c),Weight(weight),Bias(bias),kernel_size(kernel_sz),dialations(dialations),padding(padding),strides(strides){}
     //input->tensor_A; output->tensor_B
-    void forward(const tensor<Dtype>* tensor_A, const tensor<Dtype>*& tensor_B){
+    void forward(const tensor<Dtype>* tensor_A, tensor<Dtype>*& tensor_B){
         const int height_A=tensor_A->height, width_A=tensor_A->width;
         const int batch = tensor_A->batch;
         Dtype *A=tensor_A->data;
@@ -40,22 +40,34 @@ public:
         int height_B = (height_A+2*get<0>(padding)-get<0>(dialations)*(get<0>(kernel_size)-1)-1)/get<0>(strides) + 1;
         int width_B = (width_A+2*get<1>(padding)-get<1>(dialations)*(get<1>(kernel_size)-1)-1)/get<1>(strides) + 1;
 
-        tensor_B->height = height_B;
-        tensor_B->width = width_B;
-        tensor_B->channels = out_channels;
+        Dtype* B = (Dtype*)malloc(sizeof(Dtype)*height_B*width_B*out_channels*batch);
+        tensor_B=new tensor<float>(B,width_B,height_B,out_channels,batch);
 
-        const Dtype* d_A, d_B, d_K, d_bias;
+        printf("B: %d %d %d\n",tensor_B->height,tensor_B->width,tensor_B->channels);
+
+        Dtype* d_A;
+        Dtype* d_B;
+        Dtype* d_K;
+        Dtype* d_bias;
+        printf("start cuda malloc\n");
         cudaMalloc((void**)&d_A, batch * width_A * height_A * in_channels * sizeof(float));
+        printf("cuda malloc ok\n");
         cudaMalloc((void**)&d_B, batch * width_B * height_B * out_channels * sizeof(float));
+        printf("cuda malloc ok\n");
         cudaMalloc((void**)&d_K, get<0>(kernel_size)* get<1>(kernel_size) * in_channels * out_channels * sizeof(float));
         cudaMalloc((void**)&d_bias, 1*1*out_channels* sizeof(float));
-
+        printf("cuda malloc ok\n");
         cudaMemcpy((void*)d_A, (void*)A, batch * width_A * height_A * in_channels * sizeof(float), cudaMemcpyHostToDevice);
         cudaMemcpy((void*)d_K, (void*)Weight, get<0>(kernel_size)* get<1>(kernel_size) * in_channels * out_channels * sizeof(float), cudaMemcpyHostToDevice);
         cudaMemcpy((void*)d_bias, (void*)Bias, 1*1 * out_channels * sizeof(float), cudaMemcpyHostToDevice);
+        printf("cuda cpy ok\n");
         // =================================================执行
         int nthreads = batch * width_B * height_B * out_channels;
-        ConvolutionForward(d_A, d_B, Weight,Bias, nthreads,batch, in_channels, height_A, width_A, height_B, width_B,
+
+        dim3 blockNum(batch, out_channels);
+        dim3 threadsPerBlock(width_B, height_B);
+
+        ConvolutionForward<<<blockNum, threadsPerBlock>>>(d_A, d_B, d_K, d_bias, nthreads,batch, height_A, width_A, in_channels ,height_B, width_B, out_channels,
                            get<0>(kernel_size),get<1>(kernel_size),get<0>(strides),get<1>(strides),get<0>(padding),get<1>(padding));
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B, batch * width_B * height_B * sizeof(Dtype), cudaMemcpyDeviceToHost);
@@ -79,9 +91,6 @@ public:
         Dtype *A=tensor_A->data;
         const int batch = tensor_A->batch;
         printf("A: %d %d %d %d \n",height_A,width_A,channels_A,batch);
-//        for(int i=0;i<batch*width_A * height_A * channels_A;i++){
-//            printf("%f ",A[i]);
-//        }
 
         // =================================================计算输出大小
         int height_B = (height_A-get<0>(kernel_size)+2*get<0>(padding))/get<0>(strides)+1;

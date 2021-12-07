@@ -66,7 +66,7 @@ CMAKE_BINARY_DIR = /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debu
 CMakeFiles/cudnn_resnet.dir/all:
 	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/depend
 	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles --progress-num=1,2,3,4,5,6 "Built target cudnn_resnet"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles --progress-num=1,2 "Built target cudnn_resnet"
 .PHONY : CMakeFiles/cudnn_resnet.dir/all
 
 # Include target in all.
@@ -76,7 +76,7 @@ all: CMakeFiles/cudnn_resnet.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/cudnn_resnet.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles 6
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles 2
 	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/cudnn_resnet.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles 0
 .PHONY : CMakeFiles/cudnn_resnet.dir/rule

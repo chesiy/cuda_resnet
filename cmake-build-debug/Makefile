@@ -123,33 +123,6 @@ cudnn_resnet/fast:
 	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/build
 .PHONY : cudnn_resnet/fast
 
-block.o: block.cpp.o
-
-.PHONY : block.o
-
-# target to build an object file
-block.cpp.o:
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/block.cpp.o
-.PHONY : block.cpp.o
-
-block.i: block.cpp.i
-
-.PHONY : block.i
-
-# target to preprocess a source file
-block.cpp.i:
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/block.cpp.i
-.PHONY : block.cpp.i
-
-block.s: block.cpp.s
-
-.PHONY : block.s
-
-# target to generate assembly for a file
-block.cpp.s:
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/block.cpp.s
-.PHONY : block.cpp.s
-
 main.o: main.cpp.o
 
 .PHONY : main.o
@@ -177,87 +150,6 @@ main.cpp.s:
 	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/main.cpp.s
 .PHONY : main.cpp.s
 
-resnet.o: resnet.cpp.o
-
-.PHONY : resnet.o
-
-# target to build an object file
-resnet.cpp.o:
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/resnet.cpp.o
-.PHONY : resnet.cpp.o
-
-resnet.i: resnet.cpp.i
-
-.PHONY : resnet.i
-
-# target to preprocess a source file
-resnet.cpp.i:
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/resnet.cpp.i
-.PHONY : resnet.cpp.i
-
-resnet.s: resnet.cpp.s
-
-.PHONY : resnet.s
-
-# target to generate assembly for a file
-resnet.cpp.s:
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/resnet.cpp.s
-.PHONY : resnet.cpp.s
-
-test.o: test.cpp.o
-
-.PHONY : test.o
-
-# target to build an object file
-test.cpp.o:
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/test.cpp.o
-.PHONY : test.cpp.o
-
-test.i: test.cpp.i
-
-.PHONY : test.i
-
-# target to preprocess a source file
-test.cpp.i:
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/test.cpp.i
-.PHONY : test.cpp.i
-
-test.s: test.cpp.s
-
-.PHONY : test.s
-
-# target to generate assembly for a file
-test.cpp.s:
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/test.cpp.s
-.PHONY : test.cpp.s
-
-try.o: try.cpp.o
-
-.PHONY : try.o
-
-# target to build an object file
-try.cpp.o:
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/try.cpp.o
-.PHONY : try.cpp.o
-
-try.i: try.cpp.i
-
-.PHONY : try.i
-
-# target to preprocess a source file
-try.cpp.i:
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/try.cpp.i
-.PHONY : try.cpp.i
-
-try.s: try.cpp.s
-
-.PHONY : try.s
-
-# target to generate assembly for a file
-try.cpp.s:
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/try.cpp.s
-.PHONY : try.cpp.s
-
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -267,21 +159,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... cudnn_resnet"
 	@echo "... rebuild_cache"
-	@echo "... block.o"
-	@echo "... block.i"
-	@echo "... block.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
-	@echo "... resnet.o"
-	@echo "... resnet.i"
-	@echo "... resnet.s"
-	@echo "... test.o"
-	@echo "... test.i"
-	@echo "... test.s"
-	@echo "... try.o"
-	@echo "... try.i"
-	@echo "... try.s"
 .PHONY : help
 
 

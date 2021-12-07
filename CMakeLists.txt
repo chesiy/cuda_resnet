@@ -3,4 +3,4 @@ project(cudnn_resnet)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(cudnn_resnet try.cpp resnet.cpp main.cpp block.cpp test.cpp)
+add_executable(cudnn_resnet main.cpp)

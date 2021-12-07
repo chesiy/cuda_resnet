@@ -57,57 +57,9 @@ include CMakeFiles/cudnn_resnet.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/cudnn_resnet.dir/flags.make
 
-CMakeFiles/cudnn_resnet.dir/try.cpp.o: CMakeFiles/cudnn_resnet.dir/flags.make
-CMakeFiles/cudnn_resnet.dir/try.cpp.o: ../try.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/cudnn_resnet.dir/try.cpp.o"
-	/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/cudnn_resnet.dir/try.cpp.o -c /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/try.cpp
-
-CMakeFiles/cudnn_resnet.dir/try.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cudnn_resnet.dir/try.cpp.i"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/try.cpp > CMakeFiles/cudnn_resnet.dir/try.cpp.i
-
-CMakeFiles/cudnn_resnet.dir/try.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cudnn_resnet.dir/try.cpp.s"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/try.cpp -o CMakeFiles/cudnn_resnet.dir/try.cpp.s
-
-CMakeFiles/cudnn_resnet.dir/try.cpp.o.requires:
-
-.PHONY : CMakeFiles/cudnn_resnet.dir/try.cpp.o.requires
-
-CMakeFiles/cudnn_resnet.dir/try.cpp.o.provides: CMakeFiles/cudnn_resnet.dir/try.cpp.o.requires
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/try.cpp.o.provides.build
-.PHONY : CMakeFiles/cudnn_resnet.dir/try.cpp.o.provides
-
-CMakeFiles/cudnn_resnet.dir/try.cpp.o.provides.build: CMakeFiles/cudnn_resnet.dir/try.cpp.o
-
-
-CMakeFiles/cudnn_resnet.dir/resnet.cpp.o: CMakeFiles/cudnn_resnet.dir/flags.make
-CMakeFiles/cudnn_resnet.dir/resnet.cpp.o: ../resnet.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/cudnn_resnet.dir/resnet.cpp.o"
-	/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/cudnn_resnet.dir/resnet.cpp.o -c /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/resnet.cpp
-
-CMakeFiles/cudnn_resnet.dir/resnet.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cudnn_resnet.dir/resnet.cpp.i"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/resnet.cpp > CMakeFiles/cudnn_resnet.dir/resnet.cpp.i
-
-CMakeFiles/cudnn_resnet.dir/resnet.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cudnn_resnet.dir/resnet.cpp.s"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/resnet.cpp -o CMakeFiles/cudnn_resnet.dir/resnet.cpp.s
-
-CMakeFiles/cudnn_resnet.dir/resnet.cpp.o.requires:
-
-.PHONY : CMakeFiles/cudnn_resnet.dir/resnet.cpp.o.requires
-
-CMakeFiles/cudnn_resnet.dir/resnet.cpp.o.provides: CMakeFiles/cudnn_resnet.dir/resnet.cpp.o.requires
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/resnet.cpp.o.provides.build
-.PHONY : CMakeFiles/cudnn_resnet.dir/resnet.cpp.o.provides
-
-CMakeFiles/cudnn_resnet.dir/resnet.cpp.o.provides.build: CMakeFiles/cudnn_resnet.dir/resnet.cpp.o
-
-
 CMakeFiles/cudnn_resnet.dir/main.cpp.o: CMakeFiles/cudnn_resnet.dir/flags.make
 CMakeFiles/cudnn_resnet.dir/main.cpp.o: ../main.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/cudnn_resnet.dir/main.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/cudnn_resnet.dir/main.cpp.o"
 	/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/cudnn_resnet.dir/main.cpp.o -c /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/main.cpp
 
 CMakeFiles/cudnn_resnet.dir/main.cpp.i: cmake_force
@@ -129,73 +81,17 @@ CMakeFiles/cudnn_resnet.dir/main.cpp.o.provides: CMakeFiles/cudnn_resnet.dir/mai
 CMakeFiles/cudnn_resnet.dir/main.cpp.o.provides.build: CMakeFiles/cudnn_resnet.dir/main.cpp.o
 
 
-CMakeFiles/cudnn_resnet.dir/block.cpp.o: CMakeFiles/cudnn_resnet.dir/flags.make
-CMakeFiles/cudnn_resnet.dir/block.cpp.o: ../block.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/cudnn_resnet.dir/block.cpp.o"
-	/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/cudnn_resnet.dir/block.cpp.o -c /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/block.cpp
-
-CMakeFiles/cudnn_resnet.dir/block.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cudnn_resnet.dir/block.cpp.i"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/block.cpp > CMakeFiles/cudnn_resnet.dir/block.cpp.i
-
-CMakeFiles/cudnn_resnet.dir/block.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cudnn_resnet.dir/block.cpp.s"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/block.cpp -o CMakeFiles/cudnn_resnet.dir/block.cpp.s
-
-CMakeFiles/cudnn_resnet.dir/block.cpp.o.requires:
-
-.PHONY : CMakeFiles/cudnn_resnet.dir/block.cpp.o.requires
-
-CMakeFiles/cudnn_resnet.dir/block.cpp.o.provides: CMakeFiles/cudnn_resnet.dir/block.cpp.o.requires
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/block.cpp.o.provides.build
-.PHONY : CMakeFiles/cudnn_resnet.dir/block.cpp.o.provides
-
-CMakeFiles/cudnn_resnet.dir/block.cpp.o.provides.build: CMakeFiles/cudnn_resnet.dir/block.cpp.o
-
-
-CMakeFiles/cudnn_resnet.dir/test.cpp.o: CMakeFiles/cudnn_resnet.dir/flags.make
-CMakeFiles/cudnn_resnet.dir/test.cpp.o: ../test.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/cudnn_resnet.dir/test.cpp.o"
-	/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/cudnn_resnet.dir/test.cpp.o -c /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/test.cpp
-
-CMakeFiles/cudnn_resnet.dir/test.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cudnn_resnet.dir/test.cpp.i"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/test.cpp > CMakeFiles/cudnn_resnet.dir/test.cpp.i
-
-CMakeFiles/cudnn_resnet.dir/test.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cudnn_resnet.dir/test.cpp.s"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/test.cpp -o CMakeFiles/cudnn_resnet.dir/test.cpp.s
-
-CMakeFiles/cudnn_resnet.dir/test.cpp.o.requires:
-
-.PHONY : CMakeFiles/cudnn_resnet.dir/test.cpp.o.requires
-
-CMakeFiles/cudnn_resnet.dir/test.cpp.o.provides: CMakeFiles/cudnn_resnet.dir/test.cpp.o.requires
-	$(MAKE) -f CMakeFiles/cudnn_resnet.dir/build.make CMakeFiles/cudnn_resnet.dir/test.cpp.o.provides.build
-.PHONY : CMakeFiles/cudnn_resnet.dir/test.cpp.o.provides
-
-CMakeFiles/cudnn_resnet.dir/test.cpp.o.provides.build: CMakeFiles/cudnn_resnet.dir/test.cpp.o
-
-
 # Object files for target cudnn_resnet
 cudnn_resnet_OBJECTS = \
-"CMakeFiles/cudnn_resnet.dir/try.cpp.o" \
-"CMakeFiles/cudnn_resnet.dir/resnet.cpp.o" \
-"CMakeFiles/cudnn_resnet.dir/main.cpp.o" \
-"CMakeFiles/cudnn_resnet.dir/block.cpp.o" \
-"CMakeFiles/cudnn_resnet.dir/test.cpp.o"
+"CMakeFiles/cudnn_resnet.dir/main.cpp.o"
 
 # External object files for target cudnn_resnet
 cudnn_resnet_EXTERNAL_OBJECTS =
 
-cudnn_resnet: CMakeFiles/cudnn_resnet.dir/try.cpp.o
-cudnn_resnet: CMakeFiles/cudnn_resnet.dir/resnet.cpp.o
 cudnn_resnet: CMakeFiles/cudnn_resnet.dir/main.cpp.o
-cudnn_resnet: CMakeFiles/cudnn_resnet.dir/block.cpp.o
-cudnn_resnet: CMakeFiles/cudnn_resnet.dir/test.cpp.o
 cudnn_resnet: CMakeFiles/cudnn_resnet.dir/build.make
 cudnn_resnet: CMakeFiles/cudnn_resnet.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX executable cudnn_resnet"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable cudnn_resnet"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/cudnn_resnet.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -203,11 +99,7 @@ CMakeFiles/cudnn_resnet.dir/build: cudnn_resnet
 
 .PHONY : CMakeFiles/cudnn_resnet.dir/build
 
-CMakeFiles/cudnn_resnet.dir/requires: CMakeFiles/cudnn_resnet.dir/try.cpp.o.requires
-CMakeFiles/cudnn_resnet.dir/requires: CMakeFiles/cudnn_resnet.dir/resnet.cpp.o.requires
 CMakeFiles/cudnn_resnet.dir/requires: CMakeFiles/cudnn_resnet.dir/main.cpp.o.requires
-CMakeFiles/cudnn_resnet.dir/requires: CMakeFiles/cudnn_resnet.dir/block.cpp.o.requires
-CMakeFiles/cudnn_resnet.dir/requires: CMakeFiles/cudnn_resnet.dir/test.cpp.o.requires
 
 .PHONY : CMakeFiles/cudnn_resnet.dir/requires
 

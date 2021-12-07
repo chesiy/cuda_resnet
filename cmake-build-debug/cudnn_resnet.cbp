@@ -84,19 +84,7 @@
          </MakeCommands>
       </Target>
       </Build>
-      <Unit filename="/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/block.cpp">
-         <Option target="cudnn_resnet"/>
-      </Unit>
       <Unit filename="/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/main.cpp">
-         <Option target="cudnn_resnet"/>
-      </Unit>
-      <Unit filename="/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/resnet.cpp">
-         <Option target="cudnn_resnet"/>
-      </Unit>
-      <Unit filename="/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/test.cpp">
-         <Option target="cudnn_resnet"/>
-      </Unit>
-      <Unit filename="/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/try.cpp">
          <Option target="cudnn_resnet"/>
       </Unit>
       <Unit filename="/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/CMakeLists.txt">

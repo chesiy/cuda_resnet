@@ -18,7 +18,8 @@ void matgen(float* a, int x, int y)
     {
         for (j = 0; j < y; j++)
         {
-            a[i * x + j] = (float)rand() / RAND_MAX + (float)rand()*2 / (RAND_MAX);
+//            a[i * y + j] = (float)rand() / RAND_MAX + (float)rand()*2 / (RAND_MAX);
+            a[i*y+j] = i*y+j;
         }
     }
 }
@@ -72,17 +73,30 @@ int main()
 //    mxp.forward(A,B);
 
     /// ====== Test Convolution ======
-    printf("before conv\n");
-    int in_channel=2, out_channel=4;
-    float *W = (float*)malloc(sizeof(float)* in_channel* out_channel * get<0>(*kernel)*get<1>(*kernel));
-    matgen(W, in_channel* out_channel, get<0>(*kernel)*get<1>(*kernel));
-    float *Bias = (float*)malloc(sizeof(float)* out_channel);
-    matgen(Bias, out_channel,1);
+//    printf("before conv\n");
+//    int in_channel=2, out_channel=4;
+//    float *W = (float*)malloc(sizeof(float) * in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel));
+//    matgen(W, in_channel* out_channel, get<0>(*kernel) * get<1>(*kernel));
+//    printf("W: %d %f\n", sizeof(float)* in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel),W[in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel)-1]);
+//    float *Bias = (float*)malloc(sizeof(float) * out_channel);
+//    matgen(Bias, out_channel,1);
+//    printf("Bias:\n");
+//    for(int i=0;i<out_channel;i++){
+//        printf("%f ",Bias[i]);
+//    }
+//    printf("\nB: %d %f\n", sizeof(float)* out_channel, Bias[out_channel-1]);
+//
+//    conv2d<float> conv{2,4, W, Bias,*kernel, *dialations, *padding, *stride};
+//    printf("conv ok\n");
+//    conv.forward(A,B);
 
-    conv2d<float> conv{2,4, W, Bias,*kernel, *dialations, *padding, *stride};
-    printf("conv ok\n");
-    conv.forward(A,B);
+    /// ==== Test AvgPooling ====
+    printf("before pooling\n");
+    GlobalAvgpooling<float> avgp{};
+    printf("avgp ok\n");
+    avgp.forward(A,B);
 
+    /// =========================
     printf("B: %d %d %d %d\n",B->height,B->width,B->channels,B->batch);
     print_tensor<float>(B);
 

@@ -83,7 +83,7 @@ __global__ void add(const T* A,const T* B, T* C,const int nthreads)
 
 
 template<typename T>
-__global__ void AvgPoolForward(const T* bottom_data, const T* top_data,
+__global__ void AvgPoolForward(const T* bottom_data, T* top_data,
                                const int nthreads, const int channels, const int height, const int width,
                                const int pooled_height, const int pooled_widht,const int kernel_h,const int kernel_w,
                                const int stride_h, const int stride_w, const int pad_h, const int pad_w)
@@ -141,10 +141,12 @@ __global__ void ConvolutionForward(float* A_b, float*C_b, float*kernel, float* b
     // bias: batch_size x out_channels x out_numrow x out_numcol
 
     CUDA_KERNEL_LOOP(index, nthreads){
-        int cur_batch = index / batch_size / out_numrow / out_numcol;
-        int cur_c = (index / out_numrow / out_numcol) % batch_size;
+        int cur_batch = index / out_channels / out_numrow / out_numcol;
+        int cur_c = (index / out_numrow / out_numcol) % out_channels;
         int cur_row = (index / out_numcol) % out_numrow;
         int cur_col = index % out_numcol;
+
+        // printf("%d ", cur_batch);
 
         int start_row = cur_row * stride_row - row_padding; // start row in input
         int end_row = start_row + kernel_numrow;
@@ -175,7 +177,7 @@ __global__ void ConvolutionForward(float* A_b, float*C_b, float*kernel, float* b
 
         float tmp = 0;
         for(int cur_inp_c=0; cur_inp_c<in_channels; cur_inp_c++){ // for each input channel
-            float* A_slice = A_b + cur_batch*in_channels*out_numrow*out_numcol + cur_inp_c*out_numrow*out_numcol;
+            float* A_slice = A_b + cur_batch*in_channels*in_numrow*in_numcol + cur_inp_c*in_numrow*in_numcol;
             float* kernel_slice = kernel + cur_c*in_channels*kernel_numrow*kernel_numcol + cur_inp_c*kernel_numrow*kernel_numcol;
             for(int i=0; i<ker_end_row-ker_start_row; i++){
                 for(int j=0; j<ker_end_col-ker_start_col; j++){
@@ -189,73 +191,16 @@ __global__ void ConvolutionForward(float* A_b, float*C_b, float*kernel, float* b
 }
 
 
-//__global__ void batch_trivial_conv2d_square_kernel(float* A, float*kernel, float*C, float* bias,
-//                                                   int batch_size, int in_numrow, int in_numcol, int in_channels, int kernel_size, int out_channels,
-//                                                   int padding=0, int stride=1)
-//// use square kernel and padding, and use same stride in col and row
-//// may be a little easier to implement ?
-//{
-//    return ConvolutionForward(A, kernel, C, bias,
-//                                batch_size, in_numrow, in_numcol, in_channels, kernel_size, kernel_size, out_channels,
-//                                padding, padding, stride, stride);
-//}
-
-
-__global__ void trivial_conv2d(float* A, float*kernel, float*C, float* bias, int nthreads,
-                               int in_numrow, int in_numcol, int in_channels, int kernel_numrow, int kernel_numcol, int out_channels,
-                               int row_padding=0, int col_padding=0, int stride_row=1, int stride_col=1)
-{
-    int out_numrow = (in_numrow + row_padding*2 - kernel_numrow) / stride_row + 1;
-    int out_numcol = (in_numcol + col_padding*2 - kernel_numcol) / stride_col + 1;
-    // A: in_channels x in_numrow x in_numcol
-    // kernel: out_channels x in_channels x kernel_numrow x kernel_numcol
-    // B: out_channels x out_numrow x out_numcol
-    // bias: out_channels x out_numrow x out_numcol
-
-    CUDA_KERNEL_LOOP(index, nthreads){
-        int cur_c = index / (out_numrow*out_numcol);
-        int cur_row = (index / out_numcol) % out_numrow;
-        int cur_col = index % out_numcol;
-
-        int start_row = cur_row * stride_row - row_padding; // start row in input
-        int end_row = start_row + kernel_numrow;
-
-        int start_col = cur_col * stride_col - col_padding; // start column in input
-        int end_col = start_col + kernel_numcol; // end_col is not included
-
-        // deal with padding, only use zero-padding
-        int ker_start_row = 0, ker_end_row = kernel_numrow;
-        int ker_start_col = 0, ker_end_col = kernel_numcol;
-        if(start_row < 0){
-            ker_start_row = - start_row;
-            start_row = 0;
-        }
-        if(start_col < 0){
-            ker_start_col = - start_col;
-            start_col = 0;
-        }
-
-        if(end_row > in_numrow){
-            ker_end_row = ker_end_row - end_row + in_numrow;
-            end_row = in_numrow;
-        }
-        if(end_col > in_numcol){
-            ker_end_col = ker_end_col - end_col + in_numcol;
-            end_col = in_numcol;
-        }
-
-        float tmp = 0;
-        for(int cur_inp_c=0; cur_inp_c<in_channels; cur_inp_c++){ // for each input channel
-            float* A_slice = A + cur_inp_c*out_numrow*out_numcol; // A[cur_inp_c, :]
-            float* kernel_slice = kernel + cur_c*in_channels*kernel_numrow*kernel_numcol +
-                                  cur_inp_c*kernel_numrow*kernel_numcol; // kernel[cur_c, cur_inp_c, :]
-            for(int i=0; i<ker_end_row-ker_start_row; i++){
-                for(int j=0; j<ker_end_col-ker_start_col; j++){
-                    tmp += A_slice[(start_row+i)*in_numcol + (start_col+j)] * kernel_slice[(ker_start_row+i)*kernel_numcol + (ker_start_col+j)];
-                }
+__global__ void serial_matmul(float* A, float*B, float*C,int dim_1, int dim_2, int dim_3) {
+    // A: dim1 x dim2, B: dim2 x dim3, C: dim1 x dim3
+    for (int i = 0; i < dim_1; i++) {
+        for (int j = 0; j < dim_3; j++) {
+            float tmp = 0;
+            for (int k = 0; k < dim_2; k++) {
+                tmp += A[i * dim_2 + k] * B[k * dim_3 + j];
             }
+            C[i * dim_3 + j] = tmp;
         }
-        tmp += bias[cur_c*out_numrow*out_numcol + cur_row*out_numcol + cur_col];
-        C[cur_c*out_numrow*out_numcol + cur_row*out_numcol + cur_col] = tmp;
     }
 }
+

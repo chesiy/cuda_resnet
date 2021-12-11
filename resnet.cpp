@@ -6,7 +6,7 @@
 
 template<class Dtype> class Resnet18{
 private:
-    conv2d<Dtype> conv1,conv2,conv3;
+    conv2d<Dtype> *conv1;
     Relu<Dtype> relu;
     maxpooling2d<Dtype> maxpool;
     GlobalAvgpooling<Dtype> avgpool;

@@ -18,8 +18,8 @@ void matgen(float* a, int x, int y)
     {
         for (j = 0; j < y; j++)
         {
-//            a[i * y + j] = (float)rand() / RAND_MAX + (float)rand()*2 / (RAND_MAX);
-            a[i*y+j] = i*y+j;
+            a[i * y + j] = (float)rand() / RAND_MAX + (float)rand()*2 / (RAND_MAX);
+//            a[i*y+j] = i*y+j;
         }
     }
 }
@@ -52,19 +52,37 @@ int main()
 
     srand(0);
     matgen(M, x, y);			//产生矩阵M
-    printf("M ok\n");
-    double timeStart, timeEnd;	//定义时间，求时间差用
-    timeStart = clock();
+
     auto *A=new tensor<float>(M,8,8,2,2);
 
     print_tensor<float>(A);
 
     tensor<float>* B;
-    //MatrixMultiplication_CUDA(M, N, Pg, x, y, z, gamma);			//GPU上计算
-    tuple<int,int> *kernel=new tuple<int,int>{2,2};
-    tuple<int,int> *padding=new tuple<int,int>{0,0};
+
+    tuple<int,int> *kernel=new tuple<int,int>{3,3};
+    tuple<int,int> *padding=new tuple<int,int>{1,1};
     tuple<int,int> *stride=new tuple<int,int>{1,1};
-    tuple<int,int> *dialations=new tuple<int,int>{1,1};
+    tuple<int,int> *dilations=new tuple<int,int>{1,1};
+
+    int in_channel=2, out_channel=4;
+    float *W = (float*)malloc(sizeof(float) * in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel));
+    matgen(W, in_channel* out_channel, get<0>(*kernel) * get<1>(*kernel));
+    float *Bias = (float*)malloc(sizeof(float) * out_channel);
+    matgen(Bias, out_channel,1);
+
+    in_channel = 4;
+    out_channel=4;
+    float *W2 = (float*)malloc(sizeof(float) * in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel));
+    matgen(W2, in_channel* out_channel, get<0>(*kernel) * get<1>(*kernel));
+    float *Bias2 = (float*)malloc(sizeof(float) * out_channel);
+    matgen(Bias2, out_channel,1);
+
+    in_channel = 2;
+    out_channel = 4;
+    float *W3 = (float*)malloc(sizeof(float) * in_channel * out_channel * 1*1);
+    matgen(W3, in_channel* out_channel, 1 * 1);
+    float *Bias3 = (float*)malloc(sizeof(float) * out_channel);
+    matgen(Bias3, out_channel,1);
 
     /// ====== Test MaxPooling ======
 //    printf("before pooling\n");
@@ -74,37 +92,33 @@ int main()
 
     /// ====== Test Convolution ======
 //    printf("before conv\n");
-//    int in_channel=2, out_channel=4;
-//    float *W = (float*)malloc(sizeof(float) * in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel));
-//    matgen(W, in_channel* out_channel, get<0>(*kernel) * get<1>(*kernel));
-//    printf("W: %d %f\n", sizeof(float)* in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel),W[in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel)-1]);
-//    float *Bias = (float*)malloc(sizeof(float) * out_channel);
-//    matgen(Bias, out_channel,1);
-//    printf("Bias:\n");
-//    for(int i=0;i<out_channel;i++){
-//        printf("%f ",Bias[i]);
-//    }
-//    printf("\nB: %d %f\n", sizeof(float)* out_channel, Bias[out_channel-1]);
-//
 //    conv2d<float> conv{2,4, W, Bias,*kernel, *dialations, *padding, *stride};
 //    printf("conv ok\n");
 //    conv.forward(A,B);
 
     /// ==== Test AvgPooling ====
-    printf("before pooling\n");
-    GlobalAvgpooling<float> avgp{};
-    printf("avgp ok\n");
-    avgp.forward(A,B);
+//    printf("before pooling\n");
+//    GlobalAvgpooling<float> avgp{};
+//    printf("avgp ok\n");
+//    avgp.forward(A,B);
+
+    /// ==== Test BasicBlock ====
+//    BasicBlock<float> basic{in_channel, out_channel, W, Bias, W2, Bias2};
+//    basic.forward(A, B);
+
+    /// ==== Test Bottleneck ====
+//    Bottleneck<float> bottleneck{in_channel, out_channel, W, Bias, W2, Bias2, W3, Bias3, 2};
+//    bottleneck.forward(A, B);
+
+    /// ==== Test Resnet ====
+
+
 
     /// =========================
     printf("B: %d %d %d %d\n",B->height,B->width,B->channels,B->batch);
     print_tensor<float>(B);
 
-    timeEnd = clock();
-
     free(M);
 
-//    Try_GPU();
-//    system("pause");
     return 0;
 }

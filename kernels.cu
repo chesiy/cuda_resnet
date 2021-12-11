@@ -68,7 +68,7 @@ __global__ void relu(const T* A, T* B,const int nthreads)
         }else{
             B[index]=0;
         }
-
+//        printf("%f ",B[index]);
     }
 }
 

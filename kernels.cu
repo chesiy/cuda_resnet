@@ -204,3 +204,21 @@ __global__ void serial_matmul(float* A, float*B, float*C,int dim_1, int dim_2, i
     }
 }
 
+template<typename T>
+__global__ void simple_matmul(const T* A, T* B, const T* Weight, const T* Bias,
+                              const int nthreads, const int dim1, const int dim2, const int dim3){
+    // A: dim1 x dim2, Weight: dim3 x dim2, B: dim1 x dim3 (Weight has been transposed) Bias: dim3
+    // A x Weight + Bias = B
+    CUDA_KERNEL_LOOP(index, nthreads){
+        int cur_row = index / dim3;
+        int cur_col = index % dim3;
+//        printf("cur: %d %d %d\n", cur_row, cur_col, index);
+        T tmp;
+        for(int i=0;i < dim2; i++){
+            tmp +=  A[cur_row*dim2+i] * Weight[cur_col*dim2+i];
+        }
+        B[cur_row * dim3 + cur_col] = tmp + Bias[cur_col];
+//        printf("B: %f %f %f\n",tmp, Bias[cur_col], B[cur_row*dim3+cur_col]);
+    }
+}
+

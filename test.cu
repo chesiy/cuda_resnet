@@ -18,8 +18,8 @@ void matgen(float* a, int x, int y)
     {
         for (j = 0; j < y; j++)
         {
-            a[i * y + j] = (float)rand() / RAND_MAX + (float)rand()*2 / (RAND_MAX);
-//            a[i*y+j] = i*y+j;
+//            a[i * y + j] = (float)rand() / RAND_MAX + (float)rand()*2 / (RAND_MAX);
+            a[i*y+j] = i*y+j;
         }
     }
 }
@@ -53,18 +53,18 @@ int main()
     srand(0);
     matgen(M, x, y);			//产生矩阵M
 
-    auto *A=new tensor<float>(M,8,8,2,2);
+    auto *A=new tensor<float>(M,1,1,8,16);
 
     print_tensor<float>(A);
 
     tensor<float>* B;
 
-    tuple<int,int> *kernel=new tuple<int,int>{3,3};
+    tuple<int,int> *kernel=new tuple<int,int>{1,1};
     tuple<int,int> *padding=new tuple<int,int>{1,1};
     tuple<int,int> *stride=new tuple<int,int>{1,1};
     tuple<int,int> *dilations=new tuple<int,int>{1,1};
 
-    int in_channel=2, out_channel=4;
+    int in_channel=8, out_channel=12;
     float *W = (float*)malloc(sizeof(float) * in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel));
     matgen(W, in_channel* out_channel, get<0>(*kernel) * get<1>(*kernel));
     float *Bias = (float*)malloc(sizeof(float) * out_channel);
@@ -101,6 +101,10 @@ int main()
 //    GlobalAvgpooling<float> avgp{};
 //    printf("avgp ok\n");
 //    avgp.forward(A,B);
+
+    /// ==== Test Gemm ====
+//    Gemm<float> gemm{in_channel,out_channel,W,Bias};
+//    gemm.forward(A,B);
 
     /// ==== Test BasicBlock ====
 //    BasicBlock<float> basic{in_channel, out_channel, W, Bias, W2, Bias2};

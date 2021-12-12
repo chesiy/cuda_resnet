@@ -3,13 +3,8 @@
 //
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
-#include <time.h>
 #include "block.cu"
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-#include <tuple>
-#include <map>
+#include "string.h"
 
 template<class Dtype> class Resnet18{
 private:
@@ -20,24 +15,23 @@ private:
     Gemm<Dtype> *gemm;
     BasicBlock<Dtype> *layer1,*layer2,*layer3,*layer4,*layer5;
     Bottleneck<Dtype> *neck_layer1,*neck_layer2,*neck_layer3;
-    Dtype** Weights;
-    Dtype** Biases;
+    map<string, Dtype*> Parameters;
 
 public:
-    Resnet18(){
-        conv1 = new conv2d<Dtype>(3,64,Weights[0],Biases[0],7,1,3,2);
+    Resnet18(map<string, Dtype*> param):Parameters(param){
+        conv1 = new conv2d<Dtype>(3,64,Parameters["193"],Parameters["194"],7,1,3,2);
         relu = new Relu<Dtype>{};
         maxpool = new maxpooling2d<Dtype>{3,0,1,2};
-        layer1 = new BasicBlock<Dtype>{64,64,Weights[1],Biases[1],Weights[2],Biases[2]};
-        layer2 = new BasicBlock<Dtype>{64,64,Weights[3],Biases[3],Weights[4],Biases[4]};
-        neck_layer1 = new Bottleneck<Dtype>{64,128,Weights[5],Biases[5],Weights[6],Biases[6],Weights[7],Biases[7],2};
-        layer3 = new BasicBlock<Dtype>{128,128,Weights[8],Biases[8],Weights[9],Biases[9]};
-        neck_layer2 = new Bottleneck<Dtype>{128,256,Weights[10],Biases[10],Weights[11],Biases[11],Weights[12],Biases[12],2};
-        layer4 = new BasicBlock<Dtype>{256,256,Weights[13],Biases[13],Weights[14],Biases[14]};
-        neck_layer3 =new Bottleneck<Dtype>{256,512,Weights[15],Biases[15],Weights[16],Biases[16],Weights[17],Biases[17],2};
-        layer5 = new BasicBlock<Dtype>{512,512,Weights[18],Biases[18],Weights[19],Biases[19]};
+        layer1 = new BasicBlock<Dtype>{64,64,Parameters["196"],Parameters["197"],Parameters["199"],Parameters["200"]};
+        layer2 = new BasicBlock<Dtype>{64,64,Parameters["202"],Parameters["203"],Parameters["205"],Parameters["206"]};
+        neck_layer1 = new Bottleneck<Dtype>{64,128,Parameters["208"],Parameters["209"],Parameters["211"],Parameters["212"],Parameters["214"],Parameters["215"],2};
+        layer3 = new BasicBlock<Dtype>{128,128,Parameters["217"],Parameters["218"],Parameters["220"],Parameters["221"]};
+        neck_layer2 = new Bottleneck<Dtype>{128,256,Parameters["223"],Parameters["224"],Parameters["226"],Parameters["227"],Parameters["229"],Parameters["230"],2};
+        layer4 = new BasicBlock<Dtype>{256,256,Parameters["232"],Parameters["233"],Parameters["235"],Parameters["236"]};
+        neck_layer3 =new Bottleneck<Dtype>{256,512,Parameters["238"],Parameters["239"],Parameters["241"],Parameters["242"],Parameters["244"],Parameters["245"],2};
+        layer5 = new BasicBlock<Dtype>{512,512,Parameters["247"],Parameters["248"],Parameters["250"],Parameters["251"]};
         avgpool = new GlobalAvgpooling<Dtype>{};
-        gemm = new Gemm<Dtype>{512,1000,Weights[20],Biases[20]};
+        gemm = new Gemm<Dtype>{512,1000,Parameters["fc.weight"],Parameters["fc.bias"]};
     }
 
     void forward(tensor<Dtype>* A, tensor<Dtype>*& B){
@@ -63,12 +57,5 @@ public:
     }
 
 };
-
-
-int main(){
-
-
-    return 0;
-}
 
 

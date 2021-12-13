@@ -44,8 +44,8 @@ int main()
 {
     printf("Test start!\n");
 
-    int x = 16;
-    int y = 16;
+    int x = 2*8;
+    int y = 3*8;
 //    int z = 1024;
 
     float *M = (float*)malloc(sizeof(float)*x * y);
@@ -53,36 +53,36 @@ int main()
     srand(0);
     matgen(M, x, y);			//产生矩阵M
 
-    auto *A=new tensor<float>(M,1,1,8,16);
+    auto *A=new tensor<float>(M,8,8,3,2);
 
     print_tensor<float>(A);
 
     tensor<float>* B;
 
-    tuple<int,int> *kernel=new tuple<int,int>{1,1};
-    tuple<int,int> *padding=new tuple<int,int>{1,1};
-    tuple<int,int> *stride=new tuple<int,int>{1,1};
+    tuple<int,int> *kernel=new tuple<int,int>{7,7};
+    tuple<int,int> *padding=new tuple<int,int>{3,3};
+    tuple<int,int> *stride=new tuple<int,int>{2,2};
     tuple<int,int> *dilations=new tuple<int,int>{1,1};
 
-    int in_channel=8, out_channel=12;
+    int in_channel=3, out_channel=4;
     float *W = (float*)malloc(sizeof(float) * in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel));
     matgen(W, in_channel* out_channel, get<0>(*kernel) * get<1>(*kernel));
     float *Bias = (float*)malloc(sizeof(float) * out_channel);
     matgen(Bias, out_channel,1);
 
-    in_channel = 4;
-    out_channel=4;
-    float *W2 = (float*)malloc(sizeof(float) * in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel));
-    matgen(W2, in_channel* out_channel, get<0>(*kernel) * get<1>(*kernel));
-    float *Bias2 = (float*)malloc(sizeof(float) * out_channel);
-    matgen(Bias2, out_channel,1);
-
-    in_channel = 2;
-    out_channel = 4;
-    float *W3 = (float*)malloc(sizeof(float) * in_channel * out_channel * 1*1);
-    matgen(W3, in_channel* out_channel, 1 * 1);
-    float *Bias3 = (float*)malloc(sizeof(float) * out_channel);
-    matgen(Bias3, out_channel,1);
+//    in_channel = 4;
+//    out_channel=4;
+//    float *W2 = (float*)malloc(sizeof(float) * in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel));
+//    matgen(W2, in_channel* out_channel, get<0>(*kernel) * get<1>(*kernel));
+//    float *Bias2 = (float*)malloc(sizeof(float) * out_channel);
+//    matgen(Bias2, out_channel,1);
+//
+//    in_channel = 2;
+//    out_channel = 4;
+//    float *W3 = (float*)malloc(sizeof(float) * in_channel * out_channel * 1*1);
+//    matgen(W3, in_channel* out_channel, 1 * 1);
+//    float *Bias3 = (float*)malloc(sizeof(float) * out_channel);
+//    matgen(Bias3, out_channel,1);
 
     /// ====== Test MaxPooling ======
 //    printf("before pooling\n");
@@ -91,10 +91,10 @@ int main()
 //    mxp.forward(A,B);
 
     /// ====== Test Convolution ======
-//    printf("before conv\n");
-//    conv2d<float> conv{2,4, W, Bias,*kernel, *dialations, *padding, *stride};
-//    printf("conv ok\n");
-//    conv.forward(A,B);
+    printf("before conv\n");
+    conv2d<float> conv{3,4, W, Bias,7, 1, 3, 2};
+    printf("conv ok\n");
+    conv.forward(A,B);
 
     /// ==== Test AvgPooling ====
 //    printf("before pooling\n");

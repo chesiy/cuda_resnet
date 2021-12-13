@@ -71,7 +71,7 @@ public:
 
         dim3 blockNum(batch, out_channels);
         dim3 threadsPerBlock(width_B, height_B);
-
+//        printf("Bias: %f %f \n",Bias[0],Bias[1]);
         ConvolutionForward<<<blockNum, threadsPerBlock>>>(d_A, d_B, d_K, d_bias, nthreads,batch, height_A, width_A, in_channels ,height_B, width_B, out_channels,
                            kernel_size,kernel_size,strides,strides,padding,padding);
 
@@ -103,15 +103,15 @@ public:
         Dtype* B = (Dtype*)malloc(sizeof(Dtype)*height_B*width_B*channels_A*batch);
         tensor_B=new tensor<float>(B,width_B,height_B,channels_A,batch);
 
-        printf("B: %d %d %d\n",tensor_B->height,tensor_B->width,tensor_B->channels);
+//        printf("B: %d %d %d\n",tensor_B->height,tensor_B->width,tensor_B->channels);
         Dtype* d_A;
         Dtype* d_B;
         cudaMalloc((void**)&d_A, batch * width_A * height_A * channels_A * sizeof(float));
         cudaMalloc((void**)&d_B, batch * width_B * height_B * channels_A * sizeof(float));
 
-        printf("cuda malloc ok\n");
+//        printf("cuda malloc ok\n");
         cudaMemcpy((void*)d_A, (void*)A, batch * width_A * height_A * channels_A * sizeof(float), cudaMemcpyHostToDevice);
-        printf("cuda cpy ok\n");
+//        printf("cuda cpy ok\n");
 
         // =================================================执行
         int nthreads = batch * width_B * height_B * channels_A;
@@ -124,7 +124,7 @@ public:
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B, batch * width_B * height_B * channels_A *sizeof(float), cudaMemcpyDeviceToHost);
 
-//        printf("B::: %f\n",tensor_B->data[0]);
+        printf("Maxpooling done! %d %d %d %d %f\n",tensor_B->batch,tensor_B->channels,tensor_B->height,tensor_B->width,tensor_B->data[0]);
 
     }
 
@@ -161,6 +161,8 @@ public:
                        height_A, width_A,0,0,1,1);
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B, batch * width_B * height_B * channels_A *sizeof(float), cudaMemcpyDeviceToHost);
+
+        printf("Avgpooling done! %d %d %d %d %f\n",tensor_B->batch,tensor_B->channels,tensor_B->height,tensor_B->width,tensor_B->data[0]);
 
     }
 };
@@ -270,6 +272,9 @@ public:
         simple_matmul<<<blockNum, threadsPerBlock>>>(d_A, d_B, d_W, d_bias, nthreads, batch, in_dim, out_dim);
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B,  batch * out_dim * sizeof(Dtype), cudaMemcpyDeviceToHost);
+
+        printf("gemm done!: %f %f %d %d %d %d\n",tensor_B->data[0], tensor_B->data[132],
+               tensor_B->batch, tensor_B->channels,tensor_B->height,tensor_B->width);
     }
 };
 
@@ -320,7 +325,7 @@ public:
         free(output2);
 
         B = output;
-//        printf("B: %d %d %d %d\n",B->batch,B->channels,B->height,B->width);
+        printf("Basic block ok: %d %d %d %d\n",B->batch,B->channels,B->height,B->width);
     };
 };
 
@@ -349,15 +354,14 @@ public:
     void forward(tensor<Dtype>* A, tensor<Dtype>*& B){
         tensor<Dtype>* identity  = new tensor<Dtype>(*A);
         tensor<Dtype> *output, *output2, *output3;
-        printf("start!\n");
+//        printf("start bottleneck!\n");
         conv1->forward(A,output);
-        printf("conv ok %d %d %d %d %f \n", output->batch,output->channels,output->height,output->width, output->data[131]);
+//        printf("conv ok %d %d %d %d %f \n", output->batch,output->channels,output->height,output->width, output->data[131]);
         relu->forward(output,output2);
-        printf("relu ok output %d %d %d %d %f \n",output2->batch,output2->channels,output2->height,output2->width, output2->data[131]);
+//        printf("relu ok output %d %d %d %d %f \n",output2->batch,output2->channels,output2->height,output2->width, output2->data[131]);
         free(output->data);
         free(output);
         conv2->forward(output2,output);
-        printf("conv2 ok %d %d %d %d %f \n", output->batch,output->channels,output->height,output->width, output->data[131]);
 
         conv3->forward(identity,output2);
 
@@ -371,6 +375,8 @@ public:
         free(output3);
 
         B = output;
+
+        printf("Bottle neck ok %d %d %d %d %f \n", B->batch,B->channels,B->height,B->width, B->data[131]);
 
     };
 

@@ -101,26 +101,26 @@ nthreads- the number of top_data
 
         int hstart=ph*stride_h-pad_h;
         int wstart=pw*stride_w-pad_w;
-        const int hend=min(hstart+kernel_h,height);
-        const int wend=min(wstart+kernel_w,width);
+        int hend = min(hstart + kernel_h, height + pad_h);
+        int wend = min(wstart + kernel_w, width + pad_w);
+
+        const int pool_size = (hend - hstart) * (wend - wstart);
+
         hstart=max(hstart,0);
         wstart=max(wstart,0);
+        hend = min(hend, height);
+        wend = min(wend, width);
 
         T tmp= 0;
-        int maxidx = -1;
 
         const T* bottom_slice=bottom_data+(n*channels+c)*height*width;
         for(int h =hstart; h<hend; h++){
             for(int w=wstart;w<wend;w++){
                 tmp += bottom_slice[h*width+w];
-                /*if(bottom_slice[h*width+w]>maxval){
-                    maxidx=h*width+w;
-                    maxval=bottom_slice[maxidx];
-                }*/
             }
         }
 
-        top_data[index]=tmp/((hend-hstart)*(wend-wstart));
+        top_data[index]=tmp/pool_size ;
 
     }
 }
@@ -185,7 +185,7 @@ __global__ void ConvolutionForward(float* A_b, float*C_b, float*kernel, float* b
                 }
             }
         }
-        tmp += bias[cur_batch*out_channels*out_numrow*out_numcol + cur_c*out_numrow*out_numcol + cur_row*out_numcol + cur_col]; // bias[cur_batch, cur_c, cur_row, cur_col]
+        tmp += bias[cur_c]; // bias[cur_row, cur_col]
         C_b[cur_batch*out_channels*out_numrow*out_numcol + cur_c*out_numrow*out_numcol + cur_row*out_numcol + cur_col] = tmp; // C_b[cur_batch, cur_c, cur_row, cur_col]
     }
 }
@@ -213,9 +213,10 @@ __global__ void simple_matmul(const T* A, T* B, const T* Weight, const T* Bias,
         int cur_row = index / dim3;
         int cur_col = index % dim3;
 //        printf("cur: %d %d %d\n", cur_row, cur_col, index);
-        T tmp;
+        T tmp = 0;
         for(int i=0;i < dim2; i++){
             tmp +=  A[cur_row*dim2+i] * Weight[cur_col*dim2+i];
+//            printf("curB:%d row:%d col:%d A: %f W: %f\n",index,cur_row,cur_col, A[cur_row*dim2+i],Weight[cur_col*dim2+i]);
         }
         B[cur_row * dim3 + cur_col] = tmp + Bias[cur_col];
 //        printf("B: %f %f %f\n",tmp, Bias[cur_col], B[cur_row*dim3+cur_col]);

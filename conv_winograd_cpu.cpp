@@ -224,9 +224,32 @@ int main()
 
 
     // HARD CASE
-    float kernel[72], input[144], output[288]; // kernel: 4*2*3*3, input: 2*2*6*6, output: 2*4*6*6
-    for(int i=0; i<72; i++) kernel[i] = i;
-    for(int i=0; i<144; i++) input[i] = i;
+    // float kernel[72], input[144], output[288]; // kernel: 4*2*3*3, input: 2*2*6*6, output: 2*4*6*6
+    // for(int i=0; i<72; i++) kernel[i] = i;
+    // for(int i=0; i<144; i++) input[i] = i;
+    
+    // printf("start testing\n");
+    // batch_trivial_conv2d_2x2_3x3(input, kernel, output,
+    //     2, 6, 6, 2, 4, 1);
+    
+    // for(int i=0; i<2; i++){
+    //     for(int j=0; j<4; j++){
+    //         for(int k=0; k<6; k++){
+    //             for(int l=0; l<6; l++){
+    //                 float now_element = output[i*144 + j*36 + k*6 + l];
+    //                 printf("%f ", now_element);
+    //             }
+    //             printf(" \n");
+    //         }
+    //         printf(" \n");
+    //     }
+    // }
+
+
+    // legend case
+    float kernel[16*3*7*7], input[3*24*24], output[16*24*24]; // kernel: 16*3*7*7, input: 1*3*24*24, output: 1*16*24*24
+    for(int i=0; i<16*3*7*7; i++) kernel[i] = i;
+    for(int i=0; i<3*24*24; i++) input[i] = i;
     
     printf("start testing\n");
     batch_trivial_conv2d_2x2_3x3(input, kernel, output,

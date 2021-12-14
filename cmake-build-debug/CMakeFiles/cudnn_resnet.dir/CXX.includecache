@@ -1,0 +1,34 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/main.cpp
+onnxruntime_cxx_api.h
+-
+iostream
+-
+assert.h
+-
+vector
+-
+
+/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/resnet.cpp
+iostream
+-
+myblocks.cpp
+/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/myblocks.cpp
+
+/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/try.cpp
+iostream
+-
+cuda.h
+-
+cudnn.h
+-
+string.h
+-
+

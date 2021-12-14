@@ -185,7 +185,9 @@ __global__ void ConvolutionForward(float* A_b, float*C_b, float*kernel, float* b
                 }
             }
         }
-        tmp += bias[cur_c]; // bias[cur_row, cur_col]
+        tmp += bias[cur_c];
+//        printf("tmp:%f , sitation: %d \n",tmp,cur_batch*out_channels*out_numrow*out_numcol + cur_c*out_numrow*out_numcol + cur_row*out_numcol + cur_col);
+
         C_b[cur_batch*out_channels*out_numrow*out_numcol + cur_c*out_numrow*out_numcol + cur_row*out_numcol + cur_col] = tmp; // C_b[cur_batch, cur_c, cur_row, cur_col]
     }
 }

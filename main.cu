@@ -16,7 +16,7 @@ void matgen(float* a, int x, int y)
         for (j = 0; j < y; j++)
         {
 //            a[i * y + j] = (float)rand() / RAND_MAX + (float)rand()*2 / (RAND_MAX);
-            a[i*y+j] = i*y+j;
+            a[i*y+j] = (i*y+j)*1.0/1000;
         }
     }
 }
@@ -63,17 +63,17 @@ void readFileJson(map<string,float*> &parameters)
 }
 
 int main(){
-    int x = 8*1;
-    int y = 8*3;
+    int x = 24*1;
+    int y = 24*3;
 
     float *M = (float*)malloc(sizeof(float)* x * y);
 
     srand(0);
     matgen(M, x, y);			//产生矩阵M
 
-    auto *A=new tensor<float>(M,8,8,3,1);
+    auto *A=new tensor<float>(M,24,24,3,1);
 
-    print_tensor<float>(A);
+//    print_tensor<float>(A);
 
     tensor<float>* B;
     map<string, float*> parameters;

@@ -41,7 +41,8 @@ public:
         const int height_A=tensor_A->height, width_A=tensor_A->width;
         const int batch = tensor_A->batch;
         Dtype *A=tensor_A->data;
-//        printf("A: %d %d %d %d %f\n",height_A,width_A,in_channels,batch, A[0]);
+//        printf("A: %d %d %d %d %f %f\n",height_A,width_A,in_channels,batch, A[132], A[21]);
+//        printf("W: %f %f %f\n",Weight[0],Weight[12],Weight[54]);
 
         // =================================================计算输出大小
         int height_B = (height_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
@@ -76,6 +77,8 @@ public:
                            kernel_size,kernel_size,strides,strides,padding,padding);
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B, batch * width_B * height_B * out_channels * sizeof(Dtype), cudaMemcpyDeviceToHost);
+
+        printf("conv done! %f %f\n",tensor_B->data[0], tensor_B->data[102]);
     }
 };
 
@@ -158,11 +161,11 @@ public:
         dim3 threadsPerBlock(width_B, height_B);
 
         AvgPoolForward<<<blockNum, threadsPerBlock>>>(d_A,d_B, nthreads,channels_A,height_A,width_A,height_B,width_B,
-                       height_A, width_A,0,0,1,1);
+                       height_A, width_A,1,1,0,0);
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B, batch * width_B * height_B * channels_A *sizeof(float), cudaMemcpyDeviceToHost);
 
-        printf("Avgpooling done! %d %d %d %d %f\n",tensor_B->batch,tensor_B->channels,tensor_B->height,tensor_B->width,tensor_B->data[0]);
+//        printf("Avgpooling done! %d %d %d %d %f\n",tensor_B->batch,tensor_B->channels,tensor_B->height,tensor_B->width,tensor_B->data[0]);
 
     }
 };

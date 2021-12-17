@@ -9,11 +9,11 @@ import torch.nn as nn
 # inp_col = 2
 
 batch_size = 2
-in_channels = 3
+in_channels = 2
 out_channels = 4
-kernel_size = 7
-inp_row = 14
-inp_col = 14
+kernel_size = 3
+inp_row = 8
+inp_col = 8
 
 # batch_size = 2
 # in_channels = 2
@@ -22,7 +22,7 @@ inp_col = 14
 # inp_row = 6
 # inp_col = 6
 
-conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding=3, stride=2, bias=True)
+conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding=1, stride=1, bias=True)
 
 kernel = torch.zeros((out_channels*in_channels*kernel_size*kernel_size))
 for i in range(len(kernel)):
@@ -34,10 +34,10 @@ inp = torch.zeros((batch_size*in_channels*inp_row*inp_col))
 for i in range(len(inp)):
     inp[i] = i
 
-bias = torch.ones(out_channels)
+bias = torch.zeros(out_channels)
 
-for i in range(len(bias)):
-    bias[i] = i
+# for i in range(len(bias)):
+#     bias[i] = i
 
 bias = bias.reshape(out_channels)
 

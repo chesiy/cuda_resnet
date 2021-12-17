@@ -45,10 +45,10 @@ for k, v in appended_dict.items():
 
 m.load_state_dict(new_state_dict)
 
-x = torch.zeros(1*3*24*24)
-for i in range(1*3*24*24):
+x = torch.zeros(1*3*224*224)
+for i in range(1*3*224*224):
     x[i]=i*1.0 / 1000.0
 
-x = x.reshape((1,3,24,24))
+x = x.reshape((1,3,224,224))
 out = m(x)
 # print(out)

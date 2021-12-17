@@ -201,26 +201,26 @@ int main()
     //     }
     // }
 
-    // float kernel[18], input[32], output[16]; // kernel: 1*2*3*3, input: 1*2*4*4, output: 1*1*4*4
-    // for(int i=0; i<18; i++) kernel[i] = i+1;
-    // for(int i=0; i<32; i++) input[i] = i+1;
+    float kernel[18], input[32], output[16]; // kernel: 1*2*3*3, input: 1*2*4*4, output: 1*1*4*4
+    for(int i=0; i<18; i++) kernel[i] = i+1;
+    for(int i=0; i<32; i++) input[i] = i+1;
     
-    // printf("start testing\n");
-    // batch_trivial_conv2d_2x2_3x3(input, kernel, output,
-    //     1, 4, 4, 2, 1, 1);
+    printf("start testing\n");
+    batch_trivial_conv2d_2x2_3x3(input, kernel, output,
+        1, 4, 4, 2, 1, 1);
     
-    // for(int i=0; i<1; i++){
-    //     for(int j=0; j<1; j++){
-    //         for(int k=0; k<4; k++){
-    //             for(int l=0; l<4; l++){
-    //                 float now_element = output[i*16 + j*16 + k*4 + l];
-    //                 printf("%f ", now_element);
-    //             }
-    //             printf(" \n");
-    //         }
-    //         printf(" \n");
-    //     }
-    // }
+    for(int i=0; i<1; i++){
+        for(int j=0; j<1; j++){
+            for(int k=0; k<4; k++){
+                for(int l=0; l<4; l++){
+                    float now_element = output[i*16 + j*16 + k*4 + l];
+                    printf("%f ", now_element);
+                }
+                printf(" \n");
+            }
+            printf(" \n");
+        }
+    }
 
 
     // HARD CASE
@@ -247,25 +247,25 @@ int main()
 
 
     // legend case
-    float kernel[16*3*7*7], input[3*24*24], output[16*24*24]; // kernel: 16*3*7*7, input: 1*3*24*24, output: 1*16*24*24
-    for(int i=0; i<16*3*7*7; i++) kernel[i] = i;
-    for(int i=0; i<3*24*24; i++) input[i] = i;
+    // float kernel[16*3*7*7], input[3*24*24], output[16*24*24]; // kernel: 16*3*7*7, input: 1*3*24*24, output: 1*16*24*24
+    // for(int i=0; i<16*3*7*7; i++) kernel[i] = i;
+    // for(int i=0; i<3*24*24; i++) input[i] = i;
     
-    printf("start testing\n");
-    batch_trivial_conv2d_2x2_3x3(input, kernel, output,
-        2, 6, 6, 2, 4, 1);
+    // printf("start testing\n");
+    // batch_trivial_conv2d_2x2_3x3(input, kernel, output,
+    //     2, 6, 6, 2, 4, 1);
     
-    for(int i=0; i<2; i++){
-        for(int j=0; j<4; j++){
-            for(int k=0; k<6; k++){
-                for(int l=0; l<6; l++){
-                    float now_element = output[i*144 + j*36 + k*6 + l];
-                    printf("%f ", now_element);
-                }
-                printf(" \n");
-            }
-            printf(" \n");
-        }
-    }
+    // for(int i=0; i<2; i++){
+    //     for(int j=0; j<4; j++){
+    //         for(int k=0; k<6; k++){
+    //             for(int l=0; l<6; l++){
+    //                 float now_element = output[i*144 + j*36 + k*6 + l];
+    //                 printf("%f ", now_element);
+    //             }
+    //             printf(" \n");
+    //         }
+    //         printf(" \n");
+    //     }
+    // }
     return 0;
 }

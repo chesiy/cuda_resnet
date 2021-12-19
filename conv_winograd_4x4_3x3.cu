@@ -219,8 +219,67 @@ __global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out
     // out[cur_batch, cur_channel, cur_tilerow*4+threadIdx.x, cur_tilecol*4+threadIdx.y]
     out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol + 
             (4*cur_tilerow+threadIdx.x)*out_numcol + 4*cur_tilecol+threadIdx.y] = tmp; 
+}
+
+
+__global__ void calc_AtmA_bias(float* M, float* out, float* bias, int out_channels, int P, int out_numrow, int out_numcol, int tile_num){
+    // each block has 6*6 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
+    // M: out_channels x P * 36
+    // TODO: 6*6 threads in a block leads to some inactive threads 
+    int cur_channel = blockIdx.x, cur_batch = blockIdx.y;
+    int cur_tilerow = blockIdx.z / (out_numcol/4), cur_tilecol = blockIdx.z % (out_numcol/4);
+
+    // TODO: This memory may be optimized, too; only 6*6 is enough
+    __shared__ float m[6][6];
+    __shared__ float Atm[4][6];
+    m[threadIdx.x][threadIdx.y] = M[cur_channel*P*36 + (cur_batch*tile_num+blockIdx.z)*36 + threadIdx.x*6 + threadIdx.y];
+    __syncthreads();
+
+    if(threadIdx.x > 3) return; // valid operation?
+
+    switch(threadIdx.x){
+        case 0:
+            Atm[threadIdx.x][threadIdx.y] = m[0][threadIdx.y] + m[1][threadIdx.y] + m[2][threadIdx.y] + 
+                                                    m[3][threadIdx.y] + m[4][threadIdx.y];
+            break;
+        case 1:
+            Atm[threadIdx.x][threadIdx.y] = m[1][threadIdx.y] - m[2][threadIdx.y] + 2*m[3][threadIdx.y] - 2*m[4][threadIdx.y];
+            break;
+        case 2:
+            Atm[threadIdx.x][threadIdx.y] = m[1][threadIdx.y] + m[2][threadIdx.y] + 4*m[3][threadIdx.y] + 4*m[4][threadIdx.y];
+            break;
+        case 3:
+            Atm[threadIdx.x][threadIdx.y] = m[1][threadIdx.y] - m[2][threadIdx.y] + 8*m[3][threadIdx.y] -
+                                                8*m[4][threadIdx.y] + m[5][threadIdx.y];
+            break;
+    }
+    __syncthreads();
+
+    if(threadIdx.y > 3) return;
+
+    float tmp = 0;
+    switch(threadIdx.y){
+        case 0:
+            tmp = Atm[threadIdx.x][0] + Atm[threadIdx.x][1] + Atm[threadIdx.x][2] + Atm[threadIdx.x][3] + Atm[threadIdx.x][4];
+            break;
+        case 1:
+            tmp = Atm[threadIdx.x][1] - Atm[threadIdx.x][2] + 2*Atm[threadIdx.x][3] - 2*Atm[threadIdx.x][4];
+            break;
+        case 2:
+            tmp = Atm[threadIdx.x][1] + Atm[threadIdx.x][2] + 4*Atm[threadIdx.x][3] + 4*Atm[threadIdx.x][4];
+            break;
+        case 3:
+            tmp = Atm[threadIdx.x][1] - Atm[threadIdx.x][2] + 8*Atm[threadIdx.x][3] - 8*Atm[threadIdx.x][4] + Atm[threadIdx.x][5];
+            break;
+    }
+    // __syncthreads();
+
+    // out[cur_batch, cur_channel, cur_tilerow*4+threadIdx.x, cur_tilecol*4+threadIdx.y]
+    out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol + 
+            (4*cur_tilerow+threadIdx.x)*out_numcol + 4*cur_tilecol+threadIdx.y] = tmp + bias[cur_channel]; 
 
 }
+
 
 __global__ void print_device(float* M, int length){
     for(int i=0; i<length; i++) printf("%f ", M[i]);

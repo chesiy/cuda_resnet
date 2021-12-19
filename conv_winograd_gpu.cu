@@ -106,7 +106,7 @@ __global__ void calc_V(float* inp, float* V, int P, int batch_size, int in_chann
             tmp = Btd_shared[threadIdx.x][1] - Btd_shared[threadIdx.x][3];
             break;
     }
-    __syncthreads();
+    // __syncthreads();
 
     // V[cur_channel, b, threadIdx.x, threadIdx.y] = tmp, and b = (blockIdx.x*in_numrow*in_numcol)/4 + blockIdx.y
     V[cur_channel*P*16 + blockIdx.x*in_numrow*in_numcol*4+blockIdx.y*16 + threadIdx.x*4 + threadIdx.y] = tmp;
@@ -182,13 +182,57 @@ __global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out
             tmp = Atm[threadIdx.x][1] - Atm[threadIdx.x][2] - Atm[threadIdx.x][3];
             break;
     }
-    __syncthreads();
+    // __syncthreads();
 
     // out[cur_batch, cur_channel, cur_tilerow*2+threadIdx.x, cur_tilecol*2+threadIdx.y]
     out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol + 
             (2*cur_tilerow+threadIdx.x)*out_numcol + 2*cur_tilecol+threadIdx.y] = tmp; 
-
 }
+
+
+__global__ void calc_AtmA_bias(float* M, float* out, float* bias, int out_channels, int P, int out_numrow, int out_numcol, int tile_num){
+    // each block has 4 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
+    // M: out_channels x P * 16
+    int cur_channel = blockIdx.x, cur_batch = blockIdx.y;
+    int cur_tilerow = blockIdx.z / (out_numcol/2), cur_tilecol = blockIdx.z % (out_numcol/2);
+
+    __shared__ float m[4][4];
+    __shared__ float Atm[2][4];
+    m[threadIdx.x][threadIdx.y] = M[cur_channel*P*16 + (cur_batch*tile_num+blockIdx.z)*16 + threadIdx.x*4 + threadIdx.y];
+    m[threadIdx.x][threadIdx.y+2] = M[cur_channel*P*16 + (cur_batch*tile_num+blockIdx.z)*16 + threadIdx.x*4 + threadIdx.y + 2];
+    m[threadIdx.x+2][threadIdx.y] = M[cur_channel*P*16 + (cur_batch*tile_num+blockIdx.z)*16 + (threadIdx.x+2)*4 + threadIdx.y];
+    m[threadIdx.x+2][threadIdx.y+2] = M[cur_channel*P*16 + (cur_batch*tile_num+blockIdx.z)*16 + (threadIdx.x+2)*4 + threadIdx.y + 2];
+    __syncthreads();
+
+    switch(threadIdx.x){
+        case 0:
+            Atm[threadIdx.x][threadIdx.y] = m[0][threadIdx.y] + m[1][threadIdx.y] + m[2][threadIdx.y];
+            Atm[threadIdx.x][threadIdx.y+2] = m[0][threadIdx.y+2] + m[1][threadIdx.y+2] + m[2][threadIdx.y+2];
+            break;
+        case 1:
+            Atm[threadIdx.x][threadIdx.y] = m[1][threadIdx.y] - m[2][threadIdx.y] - m[3][threadIdx.y];
+            Atm[threadIdx.x][threadIdx.y+2] = m[1][threadIdx.y+2] - m[2][threadIdx.y+2] - m[3][threadIdx.y+2];
+            break;
+    }
+    __syncthreads();
+
+    float tmp = 0;
+    switch(threadIdx.y){
+        case 0:
+            tmp = Atm[threadIdx.x][0] + Atm[threadIdx.x][1] + Atm[threadIdx.x][2];
+            break;
+        case 1:
+            tmp = Atm[threadIdx.x][1] - Atm[threadIdx.x][2] - Atm[threadIdx.x][3];
+            break;
+    }
+
+    // out[cur_batch, cur_channel, cur_tilerow*2+threadIdx.x, cur_tilecol*2+threadIdx.y]
+    out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol + 
+            (2*cur_tilerow+threadIdx.x)*out_numcol + 2*cur_tilecol+threadIdx.y] = tmp + bias[cur_channel]; 
+    
+    // __syncthreads();
+}
+
 
 __global__ void print_device(float* M, int length){
     for(int i=0; i<length; i++) printf("%f ", M[i]);

@@ -5,6 +5,7 @@
 #include <vector>
 #include "resnet.cu"
 #include <map>
+#include <chrono>
 
 using namespace std;
 
@@ -63,25 +64,34 @@ void readFileJson(map<string,float*> &parameters)
 }
 
 int main(){
-    int x = 24*1;
-    int y = 24*3;
+    int x = 224*1;
+    int y = 224*3;
 
     float *M = (float*)malloc(sizeof(float)* x * y);
 
     srand(0);
     matgen(M, x, y);			//产生矩阵M
 
-    auto *A=new tensor<float>(M,24,24,3,1);
+    auto *A=new tensor<float>(M,224,224,3,1);
 
 //    print_tensor<float>(A);
 
     tensor<float>* B;
     map<string, float*> parameters;
-    printf("start reading!\n");
+//    printf("start reading!\n");
     readFileJson(parameters);
-    printf("reading done\n");
+
     Resnet18<float> *resnet18 = new Resnet18<float>{parameters};
+
+    chrono::milliseconds ms = chrono::duration_cast< chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch());
+    long start= ms.count();
+
     resnet18->forward(A,B);
+
+    ms = chrono::duration_cast< chrono::milliseconds >(chrono::system_clock::now().time_since_epoch());
+    long end= ms.count();
+
+    printf("time: %ld\n", end-start);
 
     printf("B: %d %d %d %d\n",B->height,B->width,B->channels,B->batch);
     print_tensor<float>(B);

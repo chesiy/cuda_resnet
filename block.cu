@@ -5,6 +5,7 @@
 #include <cuda.h>
 #include <string.h>
 #include "kernels.cu"
+#define TILE_WIDTH 16
 
 using namespace std;
 
@@ -18,6 +19,7 @@ template<class Dtype> struct tensor{
         width = d.width;
         height = d.height;
         batch = d.batch;
+        channels=d.channels;
     }
     tensor(){}
 };
@@ -70,15 +72,17 @@ public:
         // =================================================执行
         int nthreads = batch * width_B * height_B * out_channels;
 
-        dim3 blockNum(batch, out_channels);
-        dim3 threadsPerBlock(width_B, height_B);
+        int num=nthreads/400+1;
+        dim3 blockNum(num, 1);
+        dim3 threadsPerBlock(20, 20);
+
 //        printf("Bias: %f %f \n",Bias[0],Bias[1]);
         ConvolutionForward<<<blockNum, threadsPerBlock>>>(d_A, d_B, d_K, d_bias, nthreads,batch, height_A, width_A, in_channels ,height_B, width_B, out_channels,
                            kernel_size,kernel_size,strides,strides,padding,padding);
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B, batch * width_B * height_B * out_channels * sizeof(Dtype), cudaMemcpyDeviceToHost);
 
-        printf("conv done! %f %f\n",tensor_B->data[0], tensor_B->data[102]);
+ //       printf("conv done! %f %f\n",tensor_B->data[0], tensor_B->data[102]);
     }
 };
 
@@ -97,7 +101,7 @@ public:
         const int height_A=tensor_A->height, width_A=tensor_A->width,channels_A=tensor_A->channels;
         Dtype *A=tensor_A->data;
         const int batch = tensor_A->batch;
-        printf("A: %d %d %d %d \n",height_A,width_A,channels_A,batch);
+      //  printf("A: %d %d %d %d \n",height_A,width_A,channels_A,batch);
 
         // =================================================计算输出大小
         int height_B = (height_A-kernel_size+2*padding)/strides+1;
@@ -119,15 +123,16 @@ public:
         // =================================================执行
         int nthreads = batch * width_B * height_B * channels_A;
 
-        dim3 blockNum(batch, channels_A);
-        dim3 threadsPerBlock(width_B, height_B);
+        int num=nthreads/400+1;
+        dim3 blockNum(num, 1);
+        dim3 threadsPerBlock(20, 20);
 
         MaxPoolForward<Dtype> <<<blockNum, threadsPerBlock>>>(d_A,d_B, nthreads, channels_A, height_A, width_A, height_B, width_B,
                        kernel_size,kernel_size,strides,strides,padding,padding);
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B, batch * width_B * height_B * channels_A *sizeof(float), cudaMemcpyDeviceToHost);
 
-        printf("Maxpooling done! %d %d %d %d %f\n",tensor_B->batch,tensor_B->channels,tensor_B->height,tensor_B->width,tensor_B->data[0]);
+ //       printf("Maxpooling done! %d %d %d %d %f\n",tensor_B->batch,tensor_B->channels,tensor_B->height,tensor_B->width,tensor_B->data[0]);
 
     }
 
@@ -157,8 +162,9 @@ public:
         // =================================================执行
         int nthreads = batch * width_B * height_B * channels_A;
 
-        dim3 blockNum(batch, channels_A);
-        dim3 threadsPerBlock(width_B, height_B);
+        int num=nthreads/400+1;
+        dim3 blockNum(num, 1);
+        dim3 threadsPerBlock(20, 20);
 
         AvgPoolForward<<<blockNum, threadsPerBlock>>>(d_A,d_B, nthreads,channels_A,height_A,width_A,height_B,width_B,
                        height_A, width_A,1,1,0,0);
@@ -193,8 +199,10 @@ public:
         // =================================================执行
         int nthread = width_A * height_A * batch * channels_A;
 
-        dim3 blockNum(batch, channels_A);
-        dim3 threadsPerBlock(width_A, height_A);
+        int num=nthread/400+1;
+        dim3 blockNum(num, 1);
+        dim3 threadsPerBlock(20, 20);
+
         relu<Dtype> <<<blockNum, threadsPerBlock>>>(d_A,d_B,nthread);
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B, batch * width_A * height_A * channels_A * sizeof(Dtype), cudaMemcpyDeviceToHost);
@@ -227,8 +235,10 @@ public:
         cudaMemcpy((void *) d_B, (void *) B, batch * width * height * channels * sizeof(float), cudaMemcpyHostToDevice);
 
         int nthread = width * height * batch * channels;
-        dim3 blockNum(batch, channels);
-        dim3 threadsPerBlock(width, height);
+
+        int num=nthread/400+1;
+        dim3 blockNum(num, 1);
+        dim3 threadsPerBlock(20, 20);
 
         add<<<blockNum, threadsPerBlock>>>(d_A, d_B, d_C,nthread);
 
@@ -269,15 +279,15 @@ public:
 
         int nthreads = batch * out_dim;
 
-        dim3 blockNum(batch, out_dim);
-        dim3 threadsPerBlock(1, 1);
+        dim3 blockNum(batch*out_dim/400+1,1);
+        dim3 threadsPerBlock(20, 20);
 
         simple_matmul<<<blockNum, threadsPerBlock>>>(d_A, d_B, d_W, d_bias, nthreads, batch, in_dim, out_dim);
 
         cudaMemcpy((void*)tensor_B->data, (void*)d_B,  batch * out_dim * sizeof(Dtype), cudaMemcpyDeviceToHost);
 
-        printf("gemm done!: %f %f %d %d %d %d\n",tensor_B->data[0], tensor_B->data[132],
-               tensor_B->batch, tensor_B->channels,tensor_B->height,tensor_B->width);
+  //      printf("gemm done!: %f %f %d %d %d %d\n",tensor_B->data[0], tensor_B->data[132],
+  //             tensor_B->batch, tensor_B->channels,tensor_B->height,tensor_B->width);
     }
 };
 
@@ -328,7 +338,7 @@ public:
         free(output2);
 
         B = output;
-        printf("Basic block ok: %d %d %d %d\n",B->batch,B->channels,B->height,B->width);
+ //       printf("Basic block ok: %d %d %d %d\n",B->batch,B->channels,B->height,B->width);
     };
 };
 
@@ -379,7 +389,7 @@ public:
 
         B = output;
 
-        printf("Bottle neck ok %d %d %d %d %f \n", B->batch,B->channels,B->height,B->width, B->data[131]);
+   //     printf("Bottle neck ok %d %d %d %d %f \n", B->batch,B->channels,B->height,B->width, B->data[131]);
 
     };
 

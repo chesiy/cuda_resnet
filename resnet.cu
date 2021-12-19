@@ -58,16 +58,16 @@ public:
 
     void forward(tensor<Dtype>* A, tensor<Dtype>*& B){
         tensor<Dtype> *tmp_out1,*tmp_out2;
-        printf("======= forward begin =======!\n");
+//        printf("======= forward begin =======!\n");
         conv1->forward(A,tmp_out1);
-        printf("after conv1 %d %d %d %d %f %f \n",
-               tmp_out1->batch, tmp_out1->channels,tmp_out1->height,tmp_out1->width,
-               tmp_out1->data[0], tmp_out1->data[40]);
+//        printf("after conv1 %d %d %d %d %f %f \n",
+//               tmp_out1->batch, tmp_out1->channels,tmp_out1->height,tmp_out1->width,
+//               tmp_out1->data[0], tmp_out1->data[40]);
 //        print_tensor<float>(tmp_out1);
         relu->forward(tmp_out1,tmp_out2);
-        printf("after relu %d %d %d %d %f %f \n",
-               tmp_out2->batch, tmp_out2->channels,tmp_out2->height,tmp_out2->width,
-               tmp_out2->data[0], tmp_out2->data[40]);
+//        printf("after relu %d %d %d %d %f %f \n",
+//               tmp_out2->batch, tmp_out2->channels,tmp_out2->height,tmp_out2->width,
+//               tmp_out2->data[0], tmp_out2->data[40]);
         free(tmp_out1->data);
         free(tmp_out1);
         maxpool->forward(tmp_out2,tmp_out1);
@@ -77,7 +77,7 @@ public:
 //        print_tensor<float>(tmp_out1);
         free(tmp_out2->data);
         free(tmp_out2);
-        printf("======== stage 1==========\n");
+//        printf("======== stage 1==========\n");
         layer1->forward(tmp_out1,tmp_out2);
         free(tmp_out1->data);
         free(tmp_out1);
@@ -100,21 +100,21 @@ public:
         free(tmp_out1->data);
         free(tmp_out1);
         layer5->forward(tmp_out2,tmp_out1);
-        print_tensor<float>(tmp_out1);
+//        print_tensor<float>(tmp_out1);
         free(tmp_out2->data);
         free(tmp_out2);
-        printf("========= stage 2 ===========\n");
-        printf("before avg %f %f %d %d %d %d\n",tmp_out1->data[0], tmp_out1->data[2],
-               tmp_out1->batch, tmp_out1->channels,tmp_out1->height,tmp_out1->width);
+//        printf("========= stage 2 ===========\n");
+//        printf("before avg %f %f %d %d %d %d\n",tmp_out1->data[0], tmp_out1->data[2],
+//               tmp_out1->batch, tmp_out1->channels,tmp_out1->height,tmp_out1->width);
         avgpool->forward(tmp_out1,tmp_out2);
-        printf("after avg: %f %f %d %d %d %d\n",tmp_out2->data[0], tmp_out2->data[2],
-               tmp_out2->batch, tmp_out2->channels,tmp_out2->height,tmp_out2->width);
-        print_tensor<float>(tmp_out2);
+//        printf("after avg: %f %f %d %d %d %d\n",tmp_out2->data[0], tmp_out2->data[2],
+//               tmp_out2->batch, tmp_out2->channels,tmp_out2->height,tmp_out2->width);
+//        print_tensor<float>(tmp_out2);
         free(tmp_out1->data);
         free(tmp_out1);
         gemm->forward(tmp_out2,tmp_out1);
-        printf("after gemm: %f %f %d %d %d %d\n",tmp_out1->data[0], tmp_out1->data[132],
-               tmp_out1->batch, tmp_out1->channels,tmp_out1->height,tmp_out1->width);
+//        printf("after gemm: %f %f %d %d %d %d\n",tmp_out1->data[0], tmp_out1->data[132],
+//               tmp_out1->batch, tmp_out1->channels,tmp_out1->height,tmp_out1->width);
         B=tmp_out1;
     }
 

@@ -524,14 +524,14 @@ public:
         tensor<Dtype> *output, *output2, *output3;
 //        printf("start bottleneck!\n");
 
-        if (conv_type == 1){
-            conv1->forward(A,output);
-        }else if (conv_type == 2){
-            conv1_2x2->forward(A,output);
-        }else if (conv_type == 4){
-            conv1_4x4->forward(A,output);
-        }
-//        conv1->forward(A,output);
+//        if (conv_type == 1){
+//            conv1->forward(A,output);
+//        }else if (conv_type == 2){
+//            conv1_2x2->forward(A,output);
+//        }else if (conv_type == 4){
+//            conv1_4x4->forward(A,output);
+//        }
+        conv1->forward(A,output);
 //        printf("conv ok %d %d %d %d %f \n", output->batch,output->channels,output->height,output->width, output->data[131]);
         relu->forward(output,output2);
 //        printf("relu ok output %d %d %d %d %f \n",output2->batch,output2->channels,output2->height,output2->width, output2->data[131]);

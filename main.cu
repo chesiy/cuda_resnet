@@ -4,6 +4,7 @@
 #include <fstream>
 #include <vector>
 #include "resnet.cu"
+//#include "tensor.cu"
 #include <map>
 #include <chrono>
 
@@ -21,22 +22,6 @@ void matgen(float* a, int x, int y)
         }
     }
 }
-
-//template<typename Dtype>
-//void print_tensor(tensor<Dtype>* Ts){
-//    for(int i=0;i<Ts->batch;i++){
-//        for(int j=0;j<Ts->channels;j++){
-//            for(int k=0;k<Ts->height;k++){
-//                for(int t=0;t<Ts->width;t++){
-//                    printf("%f ",Ts->data[i*(Ts->channels*Ts->width*Ts->height)+j*(Ts->width*Ts->height)+k*Ts->width+t]);
-//                }
-//                printf("\n");
-//            }
-//            printf("\n");
-//        }
-//        printf("\n");
-//    }
-//}
 
 void readFileJson(map<string,float*> &parameters)
 {

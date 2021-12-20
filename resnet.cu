@@ -7,6 +7,7 @@
 #include "string.h"
 #include <iostream>
 #include "stdio.h"
+//#include "tensor.cu"
 
 using namespace std;
 
@@ -28,36 +29,36 @@ void print_tensor(tensor<Dtype>* Ts){
     }
 }
 
-template<class Dtype> class Resnet18{
+class Resnet18{
 private:
-    conv2d<Dtype> *conv1;
-    Relu<Dtype> *relu;
-    maxpooling2d<Dtype> *maxpool;
-    GlobalAvgpooling<Dtype> *avgpool;
-    Gemm<Dtype> *gemm;
-    BasicBlock<Dtype> *layer1,*layer2,*layer3,*layer4,*layer5;
-    Bottleneck<Dtype> *neck_layer1,*neck_layer2,*neck_layer3;
-    map<string, Dtype*> Parameters;
+    conv2d *conv1;
+    Relu *relu;
+    maxpooling2d *maxpool;
+    GlobalAvgpooling *avgpool;
+    Gemm *gemm;
+    BasicBlock *layer1,*layer2,*layer3,*layer4,*layer5;
+    Bottleneck *neck_layer1,*neck_layer2,*neck_layer3;
+    map<string, float*> Parameters;
 
 public:
-    Resnet18(map<string, Dtype*> param):Parameters(param){
-        conv1 = new conv2d<Dtype>{3,64,Parameters["193"],Parameters["194"],7,1,3,2};
-        relu = new Relu<Dtype>{};
-        maxpool = new maxpooling2d<Dtype>{3,1,2};
-        layer1 = new BasicBlock<Dtype>{64,64,Parameters["196"],Parameters["197"],Parameters["199"],Parameters["200"]};
-        layer2 = new BasicBlock<Dtype>{64,64,Parameters["202"],Parameters["203"],Parameters["205"],Parameters["206"]};
-        neck_layer1 = new Bottleneck<Dtype>{64,128,Parameters["208"],Parameters["209"],Parameters["211"],Parameters["212"],Parameters["214"],Parameters["215"],2};
-        layer3 = new BasicBlock<Dtype>{128,128,Parameters["217"],Parameters["218"],Parameters["220"],Parameters["221"]};
-        neck_layer2 = new Bottleneck<Dtype>{128,256,Parameters["223"],Parameters["224"],Parameters["226"],Parameters["227"],Parameters["229"],Parameters["230"],2};
-        layer4 = new BasicBlock<Dtype>{256,256,Parameters["232"],Parameters["233"],Parameters["235"],Parameters["236"]};
-        neck_layer3 =new Bottleneck<Dtype>{256,512,Parameters["238"],Parameters["239"],Parameters["241"],Parameters["242"],Parameters["244"],Parameters["245"],2};
-        layer5 = new BasicBlock<Dtype>{512,512,Parameters["247"],Parameters["248"],Parameters["250"],Parameters["251"]};
-        avgpool = new GlobalAvgpooling<Dtype>{};
-        gemm = new Gemm<Dtype>{512,1000,Parameters["fc.weight"],Parameters["fc.bias"]};
+    Resnet18(map<string, float*> param):Parameters(param){
+        conv1 = new conv2d{3,64,Parameters["193"],Parameters["194"],7,1,3,2};
+        relu = new Relu{};
+        maxpool = new maxpooling2d{3,1,2};
+        layer1 = new BasicBlock{64,64,Parameters["196"],Parameters["197"],Parameters["199"],Parameters["200"],2};
+        layer2 = new BasicBlock{64,64,Parameters["202"],Parameters["203"],Parameters["205"],Parameters["206"],2};
+        neck_layer1 = new Bottleneck{64,128,Parameters["208"],Parameters["209"],Parameters["211"],Parameters["212"],Parameters["214"],Parameters["215"],2,1};
+        layer3 = new BasicBlock{128,128,Parameters["217"],Parameters["218"],Parameters["220"],Parameters["221"],1};
+        neck_layer2 = new Bottleneck{128,256,Parameters["223"],Parameters["224"],Parameters["226"],Parameters["227"],Parameters["229"],Parameters["230"],2,1};
+        layer4 = new BasicBlock{256,256,Parameters["232"],Parameters["233"],Parameters["235"],Parameters["236"],1};
+        neck_layer3 =new Bottleneck{256,512,Parameters["238"],Parameters["239"],Parameters["241"],Parameters["242"],Parameters["244"],Parameters["245"],2,1};
+        layer5 = new BasicBlock{512,512,Parameters["247"],Parameters["248"],Parameters["250"],Parameters["251"],1};
+        avgpool = new GlobalAvgpooling{};
+        gemm = new Gemm{512,1000,Parameters["fc.weight"],Parameters["fc.bias"]};
     }
 
-    void forward(tensor<Dtype>* A, tensor<Dtype>*& B){
-        tensor<Dtype> *tmp_out1,*tmp_out2;
+    void forward(tensor<float>* A, tensor<float>*& B){
+        tensor<float> *tmp_out1,*tmp_out2;
 //        printf("======= forward begin =======!\n");
         conv1->forward(A,tmp_out1);
 //        printf("after conv1 %d %d %d %d %f %f \n",

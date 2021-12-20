@@ -20,8 +20,7 @@ int Max(int a,int b){
     return a>b ? a:b;
 }
 
-template<typename T>
-__global__ void MaxPoolForward(const T* bottom_data, T* top_data,
+__global__ void MaxPoolForward(const float* bottom_data, float* top_data,
                                const int nthreads, const int channels, const int height, const int width,
                                const int pooled_height, const int pooled_width,const int kernel_h,const int kernel_w,
                                const int stride_h, const int stride_w, const int pad_h, const int pad_w)
@@ -43,9 +42,9 @@ nthreads- the number of top_data
         const int wend=min(wstart+kernel_w,width);
         hstart=max(hstart,0);
         wstart=max(wstart,0);
-        T maxval= -FLT_MAX;
+        float maxval= -FLT_MAX;
         int maxidx = -1;
-        const T* bottom_slice=bottom_data+(n*channels+c)*height*width;
+        const float* bottom_slice=bottom_data+(n*channels+c)*height*width;
         for(int h =hstart; h<hend; h++){
             for(int w=wstart;w<wend;w++){
                 if(bottom_slice[h*width+w]>maxval){
@@ -58,8 +57,7 @@ nthreads- the number of top_data
     }
 }
 
-template<typename T>
-__global__ void relu(const T* A, T* B,const int nthreads)
+__global__ void relu(const float* A, float* B,const int nthreads)
 //A-input B-output
 {
     CUDA_KERNEL_LOOP(index,nthreads){
@@ -72,8 +70,7 @@ __global__ void relu(const T* A, T* B,const int nthreads)
     }
 }
 
-template<typename T>
-__global__ void add(const T* A,const T* B, T* C,const int nthreads)
+__global__ void add(const float* A,const float* B, float* C,const int nthreads)
 //A-input B-input C-output
 {
     CUDA_KERNEL_LOOP(index,nthreads){
@@ -81,9 +78,7 @@ __global__ void add(const T* A,const T* B, T* C,const int nthreads)
     }
 }
 
-
-template<typename T>
-__global__ void AvgPoolForward(const T* bottom_data, T* top_data,
+__global__ void AvgPoolForward(const float* bottom_data, float* top_data,
                                const int nthreads, const int channels, const int height, const int width,
                                const int pooled_height, const int pooled_widht,const int kernel_h,const int kernel_w,
                                const int stride_h, const int stride_w, const int pad_h, const int pad_w)
@@ -111,9 +106,9 @@ nthreads- the number of top_data
         hend = min(hend, height);
         wend = min(wend, width);
 
-        T tmp= 0;
+        float tmp= 0;
 
-        const T* bottom_slice=bottom_data+(n*channels+c)*height*width;
+        const float* bottom_slice=bottom_data+(n*channels+c)*height*width;
         for(int h =hstart; h<hend; h++){
             for(int w=wstart;w<wend;w++){
                 tmp += bottom_slice[h*width+w];
@@ -206,8 +201,7 @@ __global__ void serial_matmul(float* A, float*B, float*C,int dim_1, int dim_2, i
     }
 }
 
-template<typename T>
-__global__ void simple_matmul(const T* A, T* B, const T* Weight, const T* Bias,
+__global__ void simple_matmul(const float* A, float* B, const float* Weight, const float* Bias,
                               const int nthreads, const int dim1, const int dim2, const int dim3){
     // A: dim1 x dim2, Weight: dim3 x dim2, B: dim1 x dim3 (Weight has been transposed) Bias: dim3
     // A x Weight + Bias = B
@@ -215,7 +209,7 @@ __global__ void simple_matmul(const T* A, T* B, const T* Weight, const T* Bias,
         int cur_row = index / dim3;
         int cur_col = index % dim3;
 //        printf("cur: %d %d %d\n", cur_row, cur_col, index);
-        T tmp = 0;
+        float tmp = 0;
         for(int i=0;i < dim2; i++){
             tmp +=  A[cur_row*dim2+i] * Weight[cur_col*dim2+i];
 //            printf("curB:%d row:%d col:%d A: %f W: %f\n",index,cur_row,cur_col, A[cur_row*dim2+i],Weight[cur_col*dim2+i]);

@@ -66,7 +66,7 @@ int main(){
 //    printf("start reading!\n");
     readFileJson(parameters);
 
-    Resnet18<float> *resnet18 = new Resnet18<float>{parameters};
+    Resnet18 *resnet18 = new Resnet18{parameters};
 
     chrono::milliseconds ms = chrono::duration_cast< chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch());
     long start= ms.count();

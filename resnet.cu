@@ -130,7 +130,7 @@ public:
 //        printf("after gemm: %d %d %d %d \n", height_B, width_B, channel_B, batch);
         tensor_B = (float*)malloc( sizeof(float)*height_B*width_B*channel_B*batch );
         cudaMemcpy((void*)tensor_B, (void*)B, batch * width_B * height_B * channel_B * sizeof(float), cudaMemcpyDeviceToHost);
-        
+
     }
 
 };

@@ -57,13 +57,10 @@ int main(){
     srand(0);
     matgen(M, x, y);			//产生矩阵M
 
-    auto *A=new tensor<float>(M,224,224,3,1);
 
-//    print_tensor<float>(A);
-
-    tensor<float>* B;
+    float* B;
+    int height_B,width_B,channel_B;
     map<string, float*> parameters;
-//    printf("start reading!\n");
     readFileJson(parameters);
 
     Resnet18 *resnet18 = new Resnet18{parameters};
@@ -71,15 +68,16 @@ int main(){
     chrono::milliseconds ms = chrono::duration_cast< chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch());
     long start= ms.count();
 
-    resnet18->forward(A,B);
+    resnet18->forward(M, 224, 224, 3, 1,
+                      B, height_B, width_B, channel_B);
 
     ms = chrono::duration_cast< chrono::milliseconds >(chrono::system_clock::now().time_since_epoch());
     long end= ms.count();
 
     printf("time: %ld\n", end-start);
 
-    printf("B: %d %d %d %d\n",B->height,B->width,B->channels,B->batch);
-    print_tensor<float>(B);
+    printf("B: %d %d %d %d\n",height_B,width_B,channel_B, 1);
+    print_tensor(B, 1, channel_B, height_B, width_B);
 
     return 0;
 }

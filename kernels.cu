@@ -70,6 +70,20 @@ __global__ void relu(const float* A, float* B,const int nthreads)
     }
 }
 
+
+__global__ void add_relu(const float* A,const float* B, float* C,const int nthreads)
+//A-input B-input C-output
+{
+    CUDA_KERNEL_LOOP(index,nthreads){
+        C[index]=A[index]+B[index];
+        if(C[index]>0){
+            C[index]=C[index];
+        }else{
+            C[index]=0;
+        }
+    }
+}
+
 __global__ void add(const float* A,const float* B, float* C,const int nthreads)
 //A-input B-input C-output
 {
@@ -136,6 +150,7 @@ __global__ void ConvolutionForward(float* A_b, float*C_b, float*kernel, float* b
     // bias: batch_size x out_channels x out_numrow x out_numcol
 
     CUDA_KERNEL_LOOP(index, nthreads){
+//        printf("kernel... %f %f", A_b[10], A_b[20]);
         int cur_batch = index / out_channels / out_numrow / out_numcol;
         int cur_c = (index / out_numrow / out_numcol) % out_channels;
         int cur_row = (index / out_numcol) % out_numrow;

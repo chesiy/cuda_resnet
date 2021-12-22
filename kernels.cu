@@ -223,7 +223,7 @@ __global__ void simple_matmul(const float* A, float* B, const float* Weight, con
     CUDA_KERNEL_LOOP(index, nthreads){
         int cur_row = index / dim3;
         int cur_col = index % dim3;
-//        printf("cur: %d %d %d\n", cur_row, cur_col, index);
+
         float tmp = 0;
         for(int i=0;i < dim2; i++){
             tmp +=  A[cur_row*dim2+i] * Weight[cur_col*dim2+i];
@@ -231,6 +231,72 @@ __global__ void simple_matmul(const float* A, float* B, const float* Weight, con
         }
         B[cur_row * dim3 + cur_col] = tmp + Bias[cur_col];
 //        printf("B: %f %f %f\n",tmp, Bias[cur_col], B[cur_row*dim3+cur_col]);
+    }
+}
+
+
+__global__ void conv_relu(float* A_b, float*C_b, float*kernel, float* bias, int nthreads,
+                          int batch_size, int in_numrow, int in_numcol, int in_channels,
+                          int out_numrow, int out_numcol, int out_channels,
+                          int kernel_numrow, int kernel_numcol,
+                          int stride_row=1, int stride_col=1,int row_padding=0, int col_padding=0)
+{
+    CUDA_KERNEL_LOOP(index, nthreads){
+//        printf("conv-relu\n");
+//        printf("kernel... %f %f", A_b[10], A_b[20]);
+        int cur_batch = index / out_channels / out_numrow / out_numcol;
+        int cur_c = (index / out_numrow / out_numcol) % out_channels;
+        int cur_row = (index / out_numcol) % out_numrow;
+        int cur_col = index % out_numcol;
+
+        // printf("%d ", cur_batch);
+
+        int start_row = cur_row * stride_row - row_padding; // start row in input
+        int end_row = start_row + kernel_numrow;
+
+        int start_col = cur_col * stride_col - col_padding; // start column in input
+        int end_col = start_col + kernel_numcol; // end_col is not included
+
+        // deal with padding, only use zero-padding
+        int ker_start_row = 0, ker_end_row = kernel_numrow;
+        int ker_start_col = 0, ker_end_col = kernel_numcol;
+        if(start_row < 0){
+            ker_start_row = - start_row;
+            start_row = 0;
+        }
+        if(start_col < 0){
+            ker_start_col = - start_col;
+            start_col = 0;
+        }
+
+        if(end_row > in_numrow){
+            ker_end_row = ker_end_row - end_row + in_numrow;
+            end_row = in_numrow;
+        }
+        if(end_col > in_numcol){
+            ker_end_col = ker_end_col - end_col + in_numcol;
+            end_col = in_numcol;
+        }
+
+        float tmp = 0;
+        for(int cur_inp_c=0; cur_inp_c<in_channels; cur_inp_c++){ // for each input channel
+            float* A_slice = A_b + cur_batch*in_channels*in_numrow*in_numcol + cur_inp_c*in_numrow*in_numcol;
+            float* kernel_slice = kernel + cur_c*in_channels*kernel_numrow*kernel_numcol + cur_inp_c*kernel_numrow*kernel_numcol;
+            for(int i=0; i<ker_end_row-ker_start_row; i++){
+                for(int j=0; j<ker_end_col-ker_start_col; j++){
+                    tmp += A_slice[(start_row+i)*in_numcol + (start_col+j)] * kernel_slice[(ker_start_row+i)*kernel_numcol + (ker_start_col+j)];
+                }
+            }
+        }
+        tmp += bias[cur_c];
+        if(tmp>0){
+            C_b[cur_batch*out_channels*out_numrow*out_numcol + cur_c*out_numrow*out_numcol + cur_row*out_numcol + cur_col] = tmp; // C_b[cur_batch, cur_c, cur_row, cur_col]
+        }
+        else{
+            C_b[cur_batch*out_channels*out_numrow*out_numcol + cur_c*out_numrow*out_numcol + cur_row*out_numcol + cur_col] = 0;
+        }
+//        printf("%f\n",C_b[cur_batch*out_channels*out_numrow*out_numcol + cur_c*out_numrow*out_numcol + cur_row*out_numcol + cur_col]);
+
     }
 }
 

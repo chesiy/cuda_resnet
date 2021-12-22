@@ -4,7 +4,7 @@
 
 namespace winograd2{
 
-    # define mm_tilewidth 2 // tile width when do matrix multiply
+    const int mm_tilewidth = 4; // tile width when do matrix multiply
 
     void serial_matmul(float* A0, float*B0, float*C0,
                        int dim_1, int dim_2, int dim_3){

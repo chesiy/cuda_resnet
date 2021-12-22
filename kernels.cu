@@ -223,7 +223,7 @@ __global__ void simple_matmul(const float* A, float* B, const float* Weight, con
     CUDA_KERNEL_LOOP(index, nthreads){
         int cur_row = index / dim3;
         int cur_col = index % dim3;
-//        printf("cur: %d %d %d\n", cur_row, cur_col, index);
+
         float tmp = 0;
         for(int i=0;i < dim2; i++){
             tmp +=  A[cur_row*dim2+i] * Weight[cur_col*dim2+i];

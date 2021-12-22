@@ -9,16 +9,45 @@
 #include <vector>
 #include "resnet.cu"
 #include <map>
+#include <json/json.h>
 #include <chrono>
+
 
 #define INPUTSHAPE 3 * 224 * 224
 #define OUTPUTSHAPE 1000
 #define TESTNUM 10
-#define ITERNUM 500
+#define ITERNUM 1
 
 float inputArr[TESTNUM][INPUTSHAPE];
 float benchOutArr[TESTNUM][OUTPUTSHAPE];
 Resnet18 *resnet18;
+
+
+void readFileJson(map<string,float*> &parameters)
+{
+    Json::Reader reader;
+    Json::Value root;
+
+    ifstream in("/home/group20/cuda_onnx_python/weights.json",ios::binary);
+
+    if(reader.parse(in,root)){
+        Json::Value::Members members = root.getMemberNames();
+        for(Json::Value::Members::iterator it = members.begin(); it != members.end(); it++){
+            float* para_list = (float*)malloc(sizeof(float) * root[*it].size());
+            for (unsigned int i = 0; i < root[*it].size(); i++)
+            {
+//                cout<<root[*it][i]<<'\n';
+                para_list[i] = float(root[*it][i].asDouble());
+//                printf("%f ",para_list[i]);
+            }
+//            printf("\n");
+            parameters.insert(pair<string, float*>(*it, para_list));
+        }
+    }
+
+    in.close();
+}
+
 
 void readInput(char *filename)
 {

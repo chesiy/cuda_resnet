@@ -42,14 +42,12 @@ public:
 //                   cudaMemcpyDeviceToHost);
 //        printf("check conv input: %f %f\n", input[0], input[20]);
 
-        // =================================================计算输出大小
         height_B = (height_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
         width_B = (width_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
         channel_B = out_channels;
 
         cudaMalloc((void**)&B, batch * width_B * height_B * out_channels * sizeof(float));
 
-        // =================================================执行
         int nthreads = batch * width_B * height_B * out_channels;
 
         int num=nthreads/400+1;
@@ -103,7 +101,7 @@ public:
 
         int P = batch * ceil(height_A/4) * ceil(width_A/4);
         int tile_num = ceil(height_A/4) * ceil(width_A/4) ;
-        printf("P %d tile_num %d\n",P,tile_num);
+//        printf("P %d tile_num %d\n",P,tile_num);
         // =================================================计算输出大小
         height_B = (height_A + 2 * padding - dialations * (kernel_size - 1) - 1) / strides + 1;
         width_B = (width_A + 2 * padding - dialations * (kernel_size - 1) - 1) / strides + 1;
@@ -115,7 +113,7 @@ public:
 
         // =================================================执行
         winograd4::calc_V<<<dim3(batch, tile_num, in_channels), dim3(6, 6)>>>(A, d_V, P, batch, in_channels, height_A, width_A);
-        winograd4::calc_UV<<<dim3(out_channels / 2, P / 2, 36), dim3(2, 2)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+        winograd4::calc_UV<<<dim3(out_channels / 4, P / 4, 36), dim3(4, 4)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
         winograd4::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(6, 6)>>>(d_UV, B, Bias, out_channels, P,
                 height_B, width_B, tile_num);
 
@@ -158,7 +156,7 @@ public:
 
         int P = batch * ceil(height_A/2) * ceil(width_A/2);
         int tile_num = ceil(height_A/2) * ceil(width_A/2) ;
-        printf("P %d tile_num %d\n",P,tile_num);
+//        printf("P %d tile_num %d\n",P,tile_num);
         // =================================================计算输出大小
         height_B = (height_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
         width_B = (width_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
@@ -170,7 +168,7 @@ public:
 
         // =================================================执行
         winograd2::calc_V<<<dim3(batch, tile_num, in_channels), dim3(4, 4)>>>(A, d_V, P, batch, in_channels, height_A, width_A);
-        winograd2::calc_UV<<<dim3(out_channels/2, P/2, 16), dim3(2, 2)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+        winograd2::calc_UV<<<dim3(out_channels/4, P/4, 16), dim3(4, 4)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
         winograd2::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(2, 2)>>>(d_UV, B, Bias, out_channels, P, height_B, width_B, tile_num);
 
     }

@@ -4,7 +4,7 @@
 
 namespace winograd2{
 
-    const int mm_tilewidth = 4; // tile width when do matrix multiply
+    const int mm_tilewidth = 8; // tile width when do matrix multiply
 
     void serial_matmul(float* A0, float*B0, float*C0,
                        int dim_1, int dim_2, int dim_3){
@@ -55,15 +55,15 @@ namespace winograd2{
     }
 
 
-    __global__ void calc_V(float* inp, float* V, int P, int batch_size, int in_channels, int in_numrow, int in_numcol){
+    __global__ void calc_V(float* inp, float* V, int P, int batch_size, int in_channels, int in_numrow, int in_numcol, int tile_numrow, int tile_numcol){
         // each block has 16 threads, and in total P*in_channels=(batch_size*tile_num*in_channels) blocks
         __shared__ float inp_shared[4][4];
         __shared__ float Btd_shared[4][4];
 
         // TODO: OPTIMIZE THIS
         int cur_batch = blockIdx.x, cur_channel = blockIdx.z;
-        int cur_row = blockIdx.y / (in_numcol/2) * 2 -1 + threadIdx.x; // tile_row * 2 - 1 + threadIdx.x
-        int cur_col = blockIdx.y % (in_numcol/2) * 2 -1 + threadIdx.y; // tile_col * 2 - 1 + threadIdx.y
+        int cur_row = blockIdx.y / tile_numcol * 2 -1 + threadIdx.x; // tile_row * 2 - 1 + threadIdx.x
+        int cur_col = blockIdx.y % tile_numcol * 2 -1 + threadIdx.y; // tile_col * 2 - 1 + threadIdx.y
 
         if(cur_row >= 0 && cur_row < in_numrow && cur_col >= 0 && cur_col < in_numcol)
             inp_shared[threadIdx.x][threadIdx.y] =
@@ -110,8 +110,8 @@ namespace winograd2{
         }
         // __syncthreads();
 
-        // V[cur_channel, b, threadIdx.x, threadIdx.y] = tmp, and b = (blockIdx.x*in_numrow*in_numcol)/4 + blockIdx.y
-        V[cur_channel*P*16 + blockIdx.x*in_numrow*in_numcol*4+blockIdx.y*16 + threadIdx.x*4 + threadIdx.y] = tmp;
+        // V[cur_channel, b, threadIdx.x, threadIdx.y] = tmp, and b = (blockIdx.x*tile_numrow*tile_numcol) + blockIdx.y
+        V[cur_channel*P*16 + (blockIdx.x*tile_numrow*tile_numcol + blockIdx.y)*16 + threadIdx.x*4 + threadIdx.y] = tmp;
 
         // printf("%d %d %d %d %f %f %f\n", cur_channel, cur_row, cur_col, cur_channel*P*16 + blockIdx.x*in_numrow*in_numcol*4+blockIdx.y*16 + threadIdx.x*4 + threadIdx.y,
         //     Btd_shared[threadIdx.x][threadIdx.y], inp_shared[threadIdx.x][threadIdx.y], tmp);
@@ -130,11 +130,23 @@ namespace winograd2{
         int place_in_16 = blockIdx.z;
         float p_value = 0;
 
-        for(int m=0; m<in_channels/mm_tilewidth; m++){
+        int iter_num = (in_channels+mm_tilewidth-1)/mm_tilewidth;
+        for(int m=0; m<iter_num; m++){
             // U[row, m*mm_tilewidth+threadIdx.y, place_in_16]
-            Uds[threadIdx.x][threadIdx.y] = U[row*in_channels*16 + (m*mm_tilewidth+threadIdx.y)*16 + place_in_16];
+            int read_col = m*mm_tilewidth+threadIdx.y;
+            if(read_col < in_channels)
+                Uds[threadIdx.x][threadIdx.y] = U[row*in_channels*16 + read_col*16 + place_in_16];
+            else
+                Uds[threadIdx.x][threadIdx.y] = 0;
+
+            int read_row = m*mm_tilewidth+threadIdx.x;
             // V[m*mm_tilewidth+threadIdx.x, col, place_in_16]
-            Vds[threadIdx.x][threadIdx.y] = V[(m*mm_tilewidth+threadIdx.x)*P*16 + col*16 + place_in_16];
+            if(read_row < in_channels)
+                Vds[threadIdx.x][threadIdx.y] = V[read_row*P*16 + col*16 + place_in_16];
+            else
+                Vds[threadIdx.x][threadIdx.y] = 0;
+
+            // printf("%d %d\n", read_col, read_row);
             __syncthreads();
 
             for(int k=0; k<mm_tilewidth; k++){
@@ -144,16 +156,16 @@ namespace winograd2{
         }
 
         // printf("%d %d %d %f %f %f \n", row, col, place_in_16, p_value, Uds[threadIdx.x][threadIdx.y], Vds[threadIdx.x][threadIdx.y]);
-
-        out[row*P*16 + col*16 + place_in_16] = p_value;
+        if(row < out_channels && col < P)
+            out[row*P*16 + col*16 + place_in_16] = p_value;
     }
 
 
-    __global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out_numrow, int out_numcol, int tile_num){
+    __global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out_numrow, int out_numcol, int tile_num, int tile_numrow, int tile_numcol){
         // each block has 4 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
         // M: out_channels x P * 16
         int cur_channel = blockIdx.x, cur_batch = blockIdx.y;
-        int cur_tilerow = blockIdx.z / (out_numcol/2), cur_tilecol = blockIdx.z % (out_numcol/2);
+        int cur_tilerow = blockIdx.z / tile_numcol, cur_tilecol = blockIdx.z % tile_numrow;
 
         __shared__ float m[4][4];
         __shared__ float Atm[2][4];
@@ -187,16 +199,20 @@ namespace winograd2{
         // __syncthreads();
 
         // out[cur_batch, cur_channel, cur_tilerow*2+threadIdx.x, cur_tilecol*2+threadIdx.y]
-        out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol +
-            (2*cur_tilerow+threadIdx.x)*out_numcol + 2*cur_tilecol+threadIdx.y] = tmp;
+        int now_row = 2*cur_tilerow+threadIdx.x;
+        int now_col = 2*cur_tilecol+threadIdx.y;
+        if(now_row < out_numrow && now_col < out_numcol){
+            out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol +
+                now_row*out_numcol + now_col] = tmp;
+        }
     }
 
 
-    __global__ void calc_AtmA_bias(float* M, float* out, float* bias, int out_channels, int P, int out_numrow, int out_numcol, int tile_num){
+    __global__ void calc_AtmA_bias(float* M, float* out, float* bias, int out_channels, int P, int out_numrow, int out_numcol, int tile_num, int tile_numrow, int tile_numcol){
         // each block has 4 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
         // M: out_channels x P * 16
         int cur_channel = blockIdx.x, cur_batch = blockIdx.y;
-        int cur_tilerow = blockIdx.z / (out_numcol/2), cur_tilecol = blockIdx.z % (out_numcol/2);
+        int cur_tilerow = blockIdx.z / tile_numcol, cur_tilecol = blockIdx.z % tile_numrow;
 
         __shared__ float m[4][4];
         __shared__ float Atm[2][4];
@@ -229,9 +245,12 @@ namespace winograd2{
         }
 
         // out[cur_batch, cur_channel, cur_tilerow*2+threadIdx.x, cur_tilecol*2+threadIdx.y]
-        out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol +
-            (2*cur_tilerow+threadIdx.x)*out_numcol + 2*cur_tilecol+threadIdx.y] = tmp + bias[cur_channel];
-
+        int now_row = 2*cur_tilerow+threadIdx.x;
+        int now_col = 2*cur_tilecol+threadIdx.y;
+        if(now_row < out_numrow && now_col < out_numcol){
+            out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol +
+                now_row*out_numcol + now_col] = tmp + bias[cur_channel];
+        }
         // __syncthreads();
     }
 
@@ -239,6 +258,7 @@ namespace winograd2{
     __global__ void print_device(float* M, int length){
         for(int i=0; i<length; i++) printf("%f ", M[i]);
     }
+
 }
 
 

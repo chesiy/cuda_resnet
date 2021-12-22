@@ -4,7 +4,7 @@
 
 namespace winograd4{
 
-    const int mm_tilewidth=4; // tile width when do matrix multiply
+    const int mm_tilewidth=8; // tile width when do matrix multiply
 
     void serial_matmul(float* A0, float*B0, float*C0,
                        int dim_1, int dim_2, int dim_3){
@@ -20,26 +20,42 @@ namespace winograd4{
         }
     }
 
-    float G[18] = {
-            0.25, 0, 0,
-            -1.0/6, -1.0/6, -1.0/6,
-            -1.0/6, 1.0/6, -1.0/6,
-            1.0/24, 1.0/12, 1.0/6,
-            1.0/24, -1.0/12, 1.0/6,
-            0, 0, 1
+// float G[18] = {
+//     0.25, 0, 0,
+//     -1.0/6, -1.0/6, -1.0/6,
+//     -1.0/6, 1.0/6, -1.0/6,
+//     1.0/24, 1.0/12, 1.0/6,
+//     1.0/24, -1.0/12, 1.0/6,
+//     0, 0, 1
+// };
+
+// float G_T[18] = {
+//     0.25, -1.0/6, -1.0/6, 1.0/24, 1.0/24, 0,
+//     0, -1.0/6, 1.0/6, 1.0/12, -1.0/12, 0,
+//     0, -1.0/6, -1.0/6, 1.0/6, 1.0/6, 1
+// };
+
+    float G_x24[18] = {
+            6, 0, 0,
+            -4, -4, -4,
+            -4, 4, -4,
+            1, 2, 4,
+            1, -2, 4,
+            0, 0, 24
     };
 
-    float G_T[18] = {
-            0.25, -1.0/6, -1.0/6, 1.0/24, 1.0/24, 0,
-            0, -1.0/6, 1.0/6, 1.0/12, -1.0/12, 0,
-            0, -1.0/6, -1.0/6, 1.0/6, 1.0/6, 1
+    float G_T_x24[18] = {
+            6, -4, -4, 1, 1, 0,
+            0, -4, 4, 2, -2, 0,
+            0, -4, -4, 4, 4, 24
     };
 
     void calc_GgGt(float*g, float*out){
         // G: 6x3, g: 3x3
         float tmp1[18];
-        serial_matmul(G, g, tmp1, 6, 3, 3);
-        serial_matmul(tmp1, G_T, out, 6, 3, 6);
+        serial_matmul(G_x24, g, tmp1, 6, 3, 3);
+        serial_matmul(tmp1, G_T_x24, out, 6, 3, 6);
+        for(int i=0; i<36; i++) out[i] = out[i] / 24.0 / 24.0;
     }
 
     void calc_U(float* kernel, float*U, int in_channels, int out_channels){
@@ -57,15 +73,15 @@ namespace winograd4{
     }
 
 
-    __global__ void calc_V(float* inp, float* V, int P, int batch_size, int in_channels, int in_numrow, int in_numcol){
+    __global__ void calc_V(float* inp, float* V, int P, int batch_size, int in_channels, int in_numrow, int in_numcol, int tile_numrow, int tile_numcol){
         // each block has 36 threads, and in total P*in_channels=(batch_size*tile_num*in_channels) blocks
         __shared__ float inp_shared[6][6];
         __shared__ float Btd_shared[6][6];
 
         // TODO: OPTIMIZE THIS
         int cur_batch = blockIdx.x, cur_channel = blockIdx.z;
-        int cur_row = blockIdx.y / (in_numcol/4) * 4 -1 + threadIdx.x; // tile_row * 4 - 1 + threadIdx.x
-        int cur_col = blockIdx.y % (in_numcol/4) * 4 -1 + threadIdx.y; // tile_col * 4 - 1 + threadIdx.y
+        int cur_row = blockIdx.y / tile_numcol * 4 -1 + threadIdx.x; // tile_row * 4 - 1 + threadIdx.x
+        int cur_col = blockIdx.y % tile_numcol * 4 -1 + threadIdx.y; // tile_col * 4 - 1 + threadIdx.y
 
         if(cur_row >= 0 && cur_row < in_numrow && cur_col >= 0 && cur_col < in_numcol)
             inp_shared[threadIdx.x][threadIdx.y] =
@@ -127,8 +143,8 @@ namespace winograd4{
         }
         // __syncthreads();
 
-        // V[cur_channel, b, threadIdx.x, threadIdx.y] = tmp, and b = (blockIdx.x*in_numrow*in_numcol)/16 + blockIdx.y
-        V[cur_channel*P*36 + (blockIdx.x*in_numrow*in_numcol/16 + blockIdx.y)*36 + threadIdx.x*6 + threadIdx.y] = tmp;
+        // V[cur_channel, b, threadIdx.x, threadIdx.y] = tmp, and b = (blockIdx.x*tile_numrow*tile_numcol) + blockIdx.y
+        V[cur_channel*P*36 + (blockIdx.x*tile_numrow*tile_numcol + blockIdx.y)*36 + threadIdx.x*6 + threadIdx.y] = tmp;
 
         // printf("%d %d %d %d %f %f %f\n", cur_channel, cur_row, cur_col, cur_channel*P*16 + blockIdx.x*in_numrow*in_numcol*4+blockIdx.y*16 + threadIdx.x*4 + threadIdx.y,
         //     Btd_shared[threadIdx.x][threadIdx.y], inp_shared[threadIdx.x][threadIdx.y], tmp);
@@ -147,11 +163,21 @@ namespace winograd4{
         int place_in_36 = blockIdx.z;
         float p_value = 0;
 
-        for(int m=0; m<in_channels/mm_tilewidth; m++){
+        int iter_num = (in_channels+mm_tilewidth-1)/mm_tilewidth;
+        for(int m=0; m<iter_num; m++){
+            int read_col = m*mm_tilewidth+threadIdx.y;
             // U[row, m*mm_tilewidth+threadIdx.y, place_in_36]
-            Uds[threadIdx.x][threadIdx.y] = U[row*in_channels*36 + (m*mm_tilewidth+threadIdx.y)*36 + place_in_36];
+            if(read_col < in_channels)
+                Uds[threadIdx.x][threadIdx.y] = U[row*in_channels*36 + read_col*36 + place_in_36];
+            else
+                Uds[threadIdx.x][threadIdx.y] = 0;
+
+            int read_row = m*mm_tilewidth+threadIdx.x;
             // V[m*mm_tilewidth+threadIdx.x, col, place_in_36]
-            Vds[threadIdx.x][threadIdx.y] = V[(m*mm_tilewidth+threadIdx.x)*P*36 + col*36 + place_in_36];
+            if(read_row < in_channels)
+                Vds[threadIdx.x][threadIdx.y] = V[read_row*P*36 + col*36 + place_in_36];
+            else
+                Vds[threadIdx.x][threadIdx.y] = 0;
             __syncthreads();
 
             for(int k=0; k<mm_tilewidth; k++){
@@ -162,16 +188,17 @@ namespace winograd4{
 
         // printf("%d %d %d %f %f %f \n", row, col, place_in_16, p_value, Uds[threadIdx.x][threadIdx.y], Vds[threadIdx.x][threadIdx.y]);
 
-        out[row*P*36 + col*36 + place_in_36] = p_value;
+        if(row < out_channels && col < P)
+            out[row*P*36 + col*36 + place_in_36] = p_value;
     }
 
 
-    __global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out_numrow, int out_numcol, int tile_num){
+    __global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out_numrow, int out_numcol, int tile_num, int tile_numrow, int tile_numcol){
         // each block has 6*6 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
         // M: out_channels x P * 36
         // TODO: 6*6 threads in a block leads to some inactive threads
         int cur_channel = blockIdx.x, cur_batch = blockIdx.y;
-        int cur_tilerow = blockIdx.z / (out_numcol/4), cur_tilecol = blockIdx.z % (out_numcol/4);
+        int cur_tilerow = blockIdx.z / tile_numcol, cur_tilecol = blockIdx.z % tile_numrow;
 
         // TODO: This memory may be optimized, too; only 6*6 is enough
         __shared__ float m[6][6];
@@ -219,17 +246,23 @@ namespace winograd4{
         __syncthreads();
 
         // out[cur_batch, cur_channel, cur_tilerow*4+threadIdx.x, cur_tilecol*4+threadIdx.y]
-        out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol +
-            (4*cur_tilerow+threadIdx.x)*out_numcol + 4*cur_tilecol+threadIdx.y] = tmp;
+        int now_row = 4*cur_tilerow+threadIdx.x;
+        int now_col = 4*cur_tilecol+threadIdx.y;
+        if(now_row < out_numrow && now_col < out_numcol){
+            // printf("%d %d \n", now_col, now_row);
+            // if(now_col>4 && now_row>4) printf("%d %d %f\n", now_col, now_row, tmp);
+            out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol +
+                now_row*out_numcol + now_col] = tmp;
+        }
     }
 
 
-    __global__ void calc_AtmA_bias(float* M, float* out, float* bias, int out_channels, int P, int out_numrow, int out_numcol, int tile_num){
+    __global__ void calc_AtmA_bias(float* M, float* out, float* bias, int out_channels, int P, int out_numrow, int out_numcol, int tile_num, int tile_numrow, int tile_numcol){
         // each block has 6*6 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
         // M: out_channels x P * 36
         // TODO: 6*6 threads in a block leads to some inactive threads
         int cur_channel = blockIdx.x, cur_batch = blockIdx.y;
-        int cur_tilerow = blockIdx.z / (out_numcol/4), cur_tilecol = blockIdx.z % (out_numcol/4);
+        int cur_tilerow = blockIdx.z / tile_numcol, cur_tilecol = blockIdx.z % tile_numrow;
 
         // TODO: This memory may be optimized, too; only 6*6 is enough
         __shared__ float m[6][6];
@@ -277,15 +310,18 @@ namespace winograd4{
         // __syncthreads();
 
         // out[cur_batch, cur_channel, cur_tilerow*4+threadIdx.x, cur_tilecol*4+threadIdx.y]
-        out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol +
-            (4*cur_tilerow+threadIdx.x)*out_numcol + 4*cur_tilecol+threadIdx.y] = tmp + bias[cur_channel];
-
+        int now_row = 4*cur_tilerow+threadIdx.x;
+        int now_col = 4*cur_tilecol+threadIdx.y;
+        if(now_row < out_numrow && now_col < out_numcol)
+            out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol +
+                now_row*out_numcol + now_col] = tmp + bias[cur_channel];
     }
 
 
     __global__ void print_device(float* M, int length){
         for(int i=0; i<length; i++) printf("%f ", M[i]);
     }
+
 }
 
 

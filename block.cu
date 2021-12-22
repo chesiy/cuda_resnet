@@ -99,8 +99,11 @@ public:
     void forward(float* A, int height_A, int width_A, int channel_A, int batch,
                  float*& B, int& height_B, int &width_B, int &channel_B) {
 
-        int P = batch * ceil(height_A/4) * ceil(width_A/4);
-        int tile_num = ceil(height_A/4) * ceil(width_A/4) ;
+        int tile_numrow = ceil(height_A*1.0/4);
+        int tile_numcol = ceil(width_A*1.0/4);
+        int P = batch * tile_numrow * tile_numcol;
+        int tile_num = tile_numrow * tile_numcol;
+        const int mm_tilewidth = 8;
 //        printf("P %d tile_num %d\n",P,tile_num);
         // =================================================计算输出大小
         height_B = (height_A + 2 * padding - dialations * (kernel_size - 1) - 1) / strides + 1;
@@ -112,10 +115,10 @@ public:
         cudaMalloc((void **) &d_UV, sizeof(float) * out_channels * P * 36);
 
         // =================================================执行
-        winograd4::calc_V<<<dim3(batch, tile_num, in_channels), dim3(6, 6)>>>(A, d_V, P, batch, in_channels, height_A, width_A);
-        winograd4::calc_UV<<<dim3(out_channels / 4, P / 4, 36), dim3(4, 4)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+        winograd4::calc_V<<<dim3(batch, tile_num, in_channels), dim3(6, 6)>>>(A, d_V, P, batch, in_channels, height_A, width_A, tile_numrow, tile_numcol);
+        winograd4::calc_UV<<<dim3(ceil(out_channels*1.0 / mm_tilewidth),ceil(P*1.0 / mm_tilewidth), 36), dim3(mm_tilewidth, mm_tilewidth)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
         winograd4::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(6, 6)>>>(d_UV, B, Bias, out_channels, P,
-                height_B, width_B, tile_num);
+                height_B, width_B, tile_num, tile_numrow,tile_numcol);
 
     }
 };
@@ -154,8 +157,12 @@ public:
     void forward(float* A, int height_A, int width_A, int channel_A, int batch,
                  float*& B, int& height_B, int &width_B, int &channel_B){
 
-        int P = batch * ceil(height_A/2) * ceil(width_A/2);
-        int tile_num = ceil(height_A/2) * ceil(width_A/2) ;
+        int tile_numrow = ceil(height_A*1.0/2);
+        int tile_numcol = ceil(width_A*1.0/2);
+        int P = batch * tile_numrow * tile_numcol;
+        int tile_num = tile_numrow * tile_numcol;
+
+        const int mm_tilewidth = 8;
 //        printf("P %d tile_num %d\n",P,tile_num);
         // =================================================计算输出大小
         height_B = (height_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
@@ -167,9 +174,9 @@ public:
         cudaMalloc((void **) &d_UV, sizeof(float) * out_channels * P * 16);
 
         // =================================================执行
-        winograd2::calc_V<<<dim3(batch, tile_num, in_channels), dim3(4, 4)>>>(A, d_V, P, batch, in_channels, height_A, width_A);
-        winograd2::calc_UV<<<dim3(out_channels/4, P/4, 16), dim3(4, 4)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
-        winograd2::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(2, 2)>>>(d_UV, B, Bias, out_channels, P, height_B, width_B, tile_num);
+        winograd2::calc_V<<<dim3(batch, tile_num, in_channels), dim3(4, 4)>>>(A, d_V, P, batch, in_channels, height_A, width_A, tile_numrow, tile_numcol);
+        winograd2::calc_UV<<<dim3(ceil(out_channels*1.0/mm_tilewidth), ceil(P*1.0/mm_tilewidth), 16), dim3(mm_tilewidth, mm_tilewidth)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+        winograd2::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(2, 2)>>>(d_UV, B, Bias, out_channels, P, height_B, width_B, tile_num,tile_numrow, tile_numcol);
 
     }
 };
@@ -348,6 +355,58 @@ public:
     }
 };
 
+
+class conv2d_relu{
+private:
+    int in_channels;
+    int out_channels;
+    int kernel_size;
+    int dialations;
+    int padding;
+    int strides;
+    float* Weight;
+    float* Bias;
+
+public:
+    conv2d_relu(int in_c, int out_c, float* weight, float* bias, const int kernel_sz, const int dialations, const int padding, const int strides):
+            in_channels(in_c),out_channels(out_c),kernel_size(kernel_sz),dialations(dialations),padding(padding),strides(strides){
+
+        cudaMalloc((void**)&Weight, kernel_size*kernel_size * in_channels * out_channels * sizeof(float));
+        cudaMalloc((void**)&Bias, 1*1*out_channels* sizeof(float));
+
+        cudaMemcpy((void*)Weight, (void*)weight, kernel_size*kernel_size * in_channels * out_channels * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy((void*)Bias, (void*)bias, 1*1 * out_channels * sizeof(float), cudaMemcpyHostToDevice);
+
+    }
+    //input->tensor_A; output->tensor_B
+    void forward(float* A, int height_A, int width_A, int channel_A, int batch,
+                 float*& B, int& height_B, int &width_B, int &channel_B){
+
+//        float* input = (float*) malloc(sizeof(float) * height_A * width_A * channel_A * batch);
+//        cudaMemcpy((void *)input, (void *) A, batch * width_A * height_A * channel_A * sizeof(float),
+//                   cudaMemcpyDeviceToHost);
+
+        // =================================================计算输出大小
+        height_B = (height_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
+        width_B = (width_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
+        channel_B = out_channels;
+
+        cudaMalloc((void**)&B, batch * width_B * height_B * out_channels * sizeof(float));
+
+        // =================================================执行
+        int nthreads = batch * width_B * height_B * out_channels;
+
+        int num=nthreads/400+1;
+        dim3 blockNum(num, 1);
+        dim3 threadsPerBlock(20, 20);
+
+        conv_relu<<<blockNum, threadsPerBlock>>>(A, B, Weight, Bias, nthreads,batch, height_A, width_A, in_channels ,height_B, width_B, out_channels,
+                                                 kernel_size,kernel_size,strides,strides,padding,padding);
+
+    }
+};
+
+
 class BasicBlock{
 private:
     float* Weight1;
@@ -360,6 +419,7 @@ private:
     conv_wino_2x2_3x3 *conv2_2x2;
     conv_wino_4x4_3x3 *conv1_4x4;
     conv_wino_4x4_3x3 *conv2_4x4;
+    conv2d_relu *conv1_relu;//merge
     Relu *relu;
     Add_Relu *add_relu;
     int conv_type;
@@ -371,6 +431,7 @@ public:
             Weight1(weight1),Bias1(bias1),Weight2(weight2),Bias2(bias2),conv_type(conv_type)
     {
         if (conv_type == 1){
+//            conv1_relu =new conv2d_relu{_inplanes, _planes, Weight1,Bias1, 3, 1, 1, 1};//merge
             conv1 = new conv2d{_inplanes, _planes, Weight1,Bias1, 3, 1, 1, 1};//3*3卷积，stride=1
             conv2 = new conv2d{_planes, _planes, Weight2, Bias2,3, 1, 1, 1};//3*3卷积，stride=1
         }else if (conv_type == 2){
@@ -402,10 +463,10 @@ public:
             conv1_4x4->forward(A, height_A, width_A, channel_A, batch,
                                output, height, width, channel);
         }
-//        printf("conv ok %d %d %d %d %f \n", output->batch,output->channels,output->height,output->width, output->data[131]);
         relu->forward(output, height, width, channel, batch,
                       output2, height2, width2, channel2);
-//        printf("relu ok output %d %d %d %d %f \n",output2->batch,output2->channels,output2->height,output2->width, output2->data[131]);
+//        conv1_relu->forward(A, height_A, width_A, channel_A, batch,
+//                            output2, height2, width2, channel2);
 
         cudaFree(output);
 
@@ -453,14 +514,14 @@ public:
     Bottleneck(int _inplanes, int _planes, float* weight1, float* bias1, float* weight2, float* bias2, float* weight3, float* bias3,int _stride, int conv_type):
             Weight1(weight1),Bias1(bias1),Weight2(weight2),Bias2(bias2),Weight3(weight3),Bias3(bias3),conv_type(conv_type)
     {
+        conv1 = new conv2d{_inplanes,_planes,weight1,bias1,3,1,1,_stride};//3*3卷积 stride=_strinde ic=_inplanes oc=width
         if (conv_type == 1){
-            conv1 = new conv2d{_inplanes,_planes,weight1,bias1,3,1,1,_stride};//3*3卷积 stride=_strinde ic=_inplanes oc=width
             conv2 = new conv2d{_planes,_planes,weight2,bias2, 3, 1, 1, 1};//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
         }else if (conv_type == 2){
-            conv1_2x2 = new conv_wino_2x2_3x3{_inplanes,_planes,weight1,bias1,3, 1, 1, _stride};//3*3卷积 stride=_strinde ic=_inplanes oc=width
+//            conv1_2x2 = new conv_wino_2x2_3x3{_inplanes,_planes,weight1,bias1,3, 1, 1, _stride};//3*3卷积 stride=_strinde ic=_inplanes oc=width
             conv2_2x2 = new conv_wino_2x2_3x3{_planes,_planes,weight2,bias2, 3, 1, 1, 1};//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
         }else if (conv_type == 4){
-            conv1_4x4 = new conv_wino_4x4_3x3{_inplanes,_planes,weight1,bias1,3,1,1,_stride};//3*3卷积 stride=_strinde ic=_inplanes oc=width
+//            conv1_4x4 = new conv_wino_4x4_3x3{_inplanes,_planes,weight1,bias1,3,1,1,_stride};//3*3卷积 stride=_strinde ic=_inplanes oc=width
             conv2_4x4 = new conv_wino_4x4_3x3{_planes,_planes,weight2,bias2, 3, 1, 1, 1};//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
         }
 
@@ -477,16 +538,18 @@ public:
         int height2, width2, channel2;
 //        printf("start bottleneck!\n");
 
-        if (conv_type == 1){
-            conv1->forward(A, height_A, width_A, channel_A, batch,
+//        if (conv_type == 1){
+//            conv1->forward(A, height_A, width_A, channel_A, batch,
+//                           output, height, width, channel);
+//        }else if (conv_type == 2){
+//            conv1_2x2->forward(A, height_A, width_A, channel_A, batch,
+//                               output, height, width, channel);
+//        }else if (conv_type == 4){
+//            conv1_4x4->forward(A, height_A, width_A, channel_A, batch,
+//                               output, height, width, channel);
+//        }
+        conv1->forward(A, height_A, width_A, channel_A, batch,
                            output, height, width, channel);
-        }else if (conv_type == 2){
-            conv1_2x2->forward(A, height_A, width_A, channel_A, batch,
-                               output, height, width, channel);
-        }else if (conv_type == 4){
-            conv1_4x4->forward(A, height_A, width_A, channel_A, batch,
-                               output, height, width, channel);
-        }
 
 //        printf("conv ok %d %d %d %d %f \n", output->batch,output->channels,output->height,output->width, output->data[131]);
         relu->forward(output, height, width, channel, batch,

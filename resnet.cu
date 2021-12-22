@@ -43,12 +43,12 @@ public:
         maxpool = new maxpooling2d{3,1,2};
         layer1 = new BasicBlock{64,64,Parameters["196"],Parameters["197"],Parameters["199"],Parameters["200"],4};
         layer2 = new BasicBlock{64,64,Parameters["202"],Parameters["203"],Parameters["205"],Parameters["206"],4};
-        neck_layer1 = new Bottleneck{64,128,Parameters["208"],Parameters["209"],Parameters["211"],Parameters["212"],Parameters["214"],Parameters["215"],2,1};
-        layer3 = new BasicBlock{128,128,Parameters["217"],Parameters["218"],Parameters["220"],Parameters["221"],2};
-        neck_layer2 = new Bottleneck{128,256,Parameters["223"],Parameters["224"],Parameters["226"],Parameters["227"],Parameters["229"],Parameters["230"],2,1};
-        layer4 = new BasicBlock{256,256,Parameters["232"],Parameters["233"],Parameters["235"],Parameters["236"],1};
-        neck_layer3 =new Bottleneck{256,512,Parameters["238"],Parameters["239"],Parameters["241"],Parameters["242"],Parameters["244"],Parameters["245"],2,1};
-        layer5 = new BasicBlock{512,512,Parameters["247"],Parameters["248"],Parameters["250"],Parameters["251"],1};
+        neck_layer1 = new Bottleneck{64,128,Parameters["208"],Parameters["209"],Parameters["211"],Parameters["212"],Parameters["214"],Parameters["215"],2,4};
+        layer3 = new BasicBlock{128,128,Parameters["217"],Parameters["218"],Parameters["220"],Parameters["221"],4};
+        neck_layer2 = new Bottleneck{128,256,Parameters["223"],Parameters["224"],Parameters["226"],Parameters["227"],Parameters["229"],Parameters["230"],2,4};
+        layer4 = new BasicBlock{256,256,Parameters["232"],Parameters["233"],Parameters["235"],Parameters["236"],4};
+        neck_layer3 =new Bottleneck{256,512,Parameters["238"],Parameters["239"],Parameters["241"],Parameters["242"],Parameters["244"],Parameters["245"],2,2};
+        layer5 = new BasicBlock{512,512,Parameters["247"],Parameters["248"],Parameters["250"],Parameters["251"],2};
         avgpool = new GlobalAvgpooling{};
         gemm = new Gemm{512,1000,Parameters["fc.weight"],Parameters["fc.bias"]};
     }
@@ -88,21 +88,25 @@ public:
 //        printf("======== stage 1==========\n");
         layer1->forward(tmp_out1, height1, width1, channel1, batch,
                         tmp_out2, height2, width2, channel2);
+//        printf("layer1\n");
         cudaFree(tmp_out1);
         layer2->forward(tmp_out2, height2, width2, channel2, batch,
                         tmp_out1, height1, width1, channel1);
+//        printf("layer2\n");
         cudaFree(tmp_out2);
         neck_layer1->forward(tmp_out1, height1, width1, channel1, batch,
                              tmp_out2, height2, width2, channel2);
         cudaFree(tmp_out1);
         layer3->forward(tmp_out2, height2, width2, channel2, batch,
                         tmp_out1, height1, width1, channel1);
+//        printf("layer3\n");
         cudaFree(tmp_out2);
         neck_layer2->forward(tmp_out1, height1, width1, channel1, batch,
                              tmp_out2, height2, width2, channel2);
         cudaFree(tmp_out1);
         layer4->forward(tmp_out2, height2, width2, channel2, batch,
                         tmp_out1, height1, width1, channel1);
+//        printf("layer4\n");
         cudaFree(tmp_out2);
         neck_layer3->forward(tmp_out1, height1, width1, channel1, batch,
                              tmp_out2, height2, width2, channel2);

@@ -2,7 +2,7 @@
 #include <iostream>
 #include <math.h>
 
-# define mm_tilewidth 2 // tile width when do matrix multiply
+# define mm_tilewidth 7 // tile width when do matrix multiply
 
 void serial_matmul(float* A0, float*B0, float*C0, 
     int dim_1, int dim_2, int dim_3){
@@ -128,11 +128,23 @@ __global__ void calc_UV(float* U, float* V, float* out, int out_channels, int in
     int place_in_16 = blockIdx.z;
     float p_value = 0;
 
-    for(int m=0; m<in_channels/mm_tilewidth; m++){
+    int iter_num = (in_channels+mm_tilewidth-1)/mm_tilewidth;
+    for(int m=0; m<iter_num; m++){
         // U[row, m*mm_tilewidth+threadIdx.y, place_in_16]
-        Uds[threadIdx.x][threadIdx.y] = U[row*in_channels*16 + (m*mm_tilewidth+threadIdx.y)*16 + place_in_16]; 
+        int read_col = m*mm_tilewidth+threadIdx.y;
+        if(read_col < in_channels)
+            Uds[threadIdx.x][threadIdx.y] = U[row*in_channels*16 + read_col*16 + place_in_16]; 
+        else
+            Uds[threadIdx.x][threadIdx.y] = 0;
+        
+        int read_row = m*mm_tilewidth+threadIdx.x;
         // V[m*mm_tilewidth+threadIdx.x, col, place_in_16]
-        Vds[threadIdx.x][threadIdx.y] = V[(m*mm_tilewidth+threadIdx.x)*P*16 + col*16 + place_in_16];
+        if(read_row < in_channels)
+            Vds[threadIdx.x][threadIdx.y] = V[read_row*P*16 + col*16 + place_in_16];
+        else
+            Vds[threadIdx.x][threadIdx.y] = 0;
+        
+        // printf("%d %d\n", read_col, read_row);
         __syncthreads();
 
         for(int k=0; k<mm_tilewidth; k++){
@@ -142,8 +154,8 @@ __global__ void calc_UV(float* U, float* V, float* out, int out_channels, int in
     }
 
     // printf("%d %d %d %f %f %f \n", row, col, place_in_16, p_value, Uds[threadIdx.x][threadIdx.y], Vds[threadIdx.x][threadIdx.y]);
-
-    out[row*P*16 + col*16 + place_in_16] = p_value;
+    if(row < out_channels && col < P)
+        out[row*P*16 + col*16 + place_in_16] = p_value;
 }
 
 
@@ -417,7 +429,7 @@ int main()
     cudaMemcpy(d_U, U, sizeof(float) * 128, cudaMemcpyHostToDevice);
 
     calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(4, 4)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col, 4, 4);
-    calc_UV<<<dim3(out_channels/2, P/2, 16), dim3(2, 2)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+    calc_UV<<<dim3((out_channels+6)/7, (P+6)/7, 16), dim3(7, 7)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
     calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(2, 2)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num, 4, 4);
 
     cudaMemcpy(output, d_out, sizeof(float) * 392, cudaMemcpyDeviceToHost);

@@ -53,15 +53,15 @@ void calc_U(float* kernel, float*U, int in_channels, int out_channels){
 }
 
 
-__global__ void calc_V(float* inp, float* V, int P, int batch_size, int in_channels, int in_numrow, int in_numcol){
+__global__ void calc_V(float* inp, float* V, int P, int batch_size, int in_channels, int in_numrow, int in_numcol, int tile_numrow, int tile_numcol){
     // each block has 16 threads, and in total P*in_channels=(batch_size*tile_num*in_channels) blocks
     __shared__ float inp_shared[4][4];
     __shared__ float Btd_shared[4][4];
 
     // TODO: OPTIMIZE THIS
     int cur_batch = blockIdx.x, cur_channel = blockIdx.z;
-    int cur_row = blockIdx.y / (in_numcol/2) * 2 -1 + threadIdx.x; // tile_row * 2 - 1 + threadIdx.x
-    int cur_col = blockIdx.y % (in_numcol/2) * 2 -1 + threadIdx.y; // tile_col * 2 - 1 + threadIdx.y
+    int cur_row = blockIdx.y / tile_numcol * 2 -1 + threadIdx.x; // tile_row * 2 - 1 + threadIdx.x
+    int cur_col = blockIdx.y % tile_numcol * 2 -1 + threadIdx.y; // tile_col * 2 - 1 + threadIdx.y
 
     if(cur_row >= 0 && cur_row < in_numrow && cur_col >= 0 && cur_col < in_numcol) 
         inp_shared[threadIdx.x][threadIdx.y] = 
@@ -108,8 +108,8 @@ __global__ void calc_V(float* inp, float* V, int P, int batch_size, int in_chann
     }
     // __syncthreads();
 
-    // V[cur_channel, b, threadIdx.x, threadIdx.y] = tmp, and b = (blockIdx.x*in_numrow*in_numcol)/4 + blockIdx.y
-    V[cur_channel*P*16 + blockIdx.x*in_numrow*in_numcol*4+blockIdx.y*16 + threadIdx.x*4 + threadIdx.y] = tmp;
+    // V[cur_channel, b, threadIdx.x, threadIdx.y] = tmp, and b = (blockIdx.x*tile_numrow*tile_numcol) + blockIdx.y
+    V[cur_channel*P*16 + (blockIdx.x*tile_numrow*tile_numcol + blockIdx.y)*16 + threadIdx.x*4 + threadIdx.y] = tmp;
 
     // printf("%d %d %d %d %f %f %f\n", cur_channel, cur_row, cur_col, cur_channel*P*16 + blockIdx.x*in_numrow*in_numcol*4+blockIdx.y*16 + threadIdx.x*4 + threadIdx.y, 
     //     Btd_shared[threadIdx.x][threadIdx.y], inp_shared[threadIdx.x][threadIdx.y], tmp);
@@ -147,11 +147,11 @@ __global__ void calc_UV(float* U, float* V, float* out, int out_channels, int in
 }
 
 
-__global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out_numrow, int out_numcol, int tile_num){
+__global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out_numrow, int out_numcol, int tile_num, int tile_numrow, int tile_numcol){
     // each block has 4 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
     // M: out_channels x P * 16
     int cur_channel = blockIdx.x, cur_batch = blockIdx.y;
-    int cur_tilerow = blockIdx.z / (out_numcol/2), cur_tilecol = blockIdx.z % (out_numcol/2);
+    int cur_tilerow = blockIdx.z / tile_numcol, cur_tilecol = blockIdx.z % tile_numrow;
 
     __shared__ float m[4][4];
     __shared__ float Atm[2][4];
@@ -185,16 +185,20 @@ __global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out
     // __syncthreads();
 
     // out[cur_batch, cur_channel, cur_tilerow*2+threadIdx.x, cur_tilecol*2+threadIdx.y]
-    out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol + 
-            (2*cur_tilerow+threadIdx.x)*out_numcol + 2*cur_tilecol+threadIdx.y] = tmp; 
+    int now_row = 2*cur_tilerow+threadIdx.x;
+    int now_col = 2*cur_tilecol+threadIdx.y;
+    if(now_row < out_numrow && now_col < out_numcol){
+        out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol + 
+                now_row*out_numcol + now_col] = tmp; 
+    }
 }
 
 
-__global__ void calc_AtmA_bias(float* M, float* out, float* bias, int out_channels, int P, int out_numrow, int out_numcol, int tile_num){
+__global__ void calc_AtmA_bias(float* M, float* out, float* bias, int out_channels, int P, int out_numrow, int out_numcol, int tile_num, int tile_numrow, int tile_numcol){
     // each block has 4 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
     // M: out_channels x P * 16
     int cur_channel = blockIdx.x, cur_batch = blockIdx.y;
-    int cur_tilerow = blockIdx.z / (out_numcol/2), cur_tilecol = blockIdx.z % (out_numcol/2);
+    int cur_tilerow = blockIdx.z / tile_numcol, cur_tilecol = blockIdx.z % tile_numrow;
 
     __shared__ float m[4][4];
     __shared__ float Atm[2][4];
@@ -227,9 +231,12 @@ __global__ void calc_AtmA_bias(float* M, float* out, float* bias, int out_channe
     }
 
     // out[cur_batch, cur_channel, cur_tilerow*2+threadIdx.x, cur_tilecol*2+threadIdx.y]
-    out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol + 
-            (2*cur_tilerow+threadIdx.x)*out_numcol + 2*cur_tilecol+threadIdx.y] = tmp + bias[cur_channel]; 
-    
+    int now_row = 2*cur_tilerow+threadIdx.x;
+    int now_col = 2*cur_tilecol+threadIdx.y;
+    if(now_row < out_numrow && now_col < out_numcol){
+        out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol + 
+                now_row*out_numcol + now_col] = tmp + bias[cur_channel]; 
+    }
     // __syncthreads();
 }
 
@@ -337,23 +344,69 @@ int main()
 
 
     // HARD CASE
-    int in_channels=2, out_channels=4, inp_row=6, inp_col=6;
-    int P=18, batch_size=2, tile_num=9, out_row=6, out_col=6;
-    float kernel[72], input[144], output[288]; // kernel: 4*2*3*3, input: 2*2*6*6, output: 2*4*6*6
+    // int in_channels=2, out_channels=4, inp_row=6, inp_col=6;
+    // int P=18, batch_size=2, tile_num=9, out_row=6, out_col=6;
+    // float kernel[72], input[144], output[288]; // kernel: 4*2*3*3, input: 2*2*6*6, output: 2*4*6*6
+    // for(int i=0; i<72; i++) kernel[i] = i;
+    // for(int i=0; i<144; i++) input[i] = i;
+    
+    // float *d_kernel, *d_inp, *d_out;
+    // float *d_V, *d_U, *d_UV;
+
+    // float U[128]; // out_channel(4)*in_channel(2)*16
+
+    // cudaMalloc((void**)&d_kernel, sizeof(float) * 72);
+    // cudaMalloc((void**)&d_inp, sizeof(float) * 144);
+    // cudaMalloc((void**)&d_out, sizeof(float) * 288);
+
+    // cudaMemcpy(d_kernel, kernel, sizeof(float) * 72, cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_inp, input, sizeof(float) * 144, cudaMemcpyHostToDevice);
+
+    // cudaMalloc((void**)&d_V, sizeof(float) * in_channels*P*16);
+    // cudaMalloc((void**)&d_U, sizeof(float) * out_channels*in_channels*16);
+    // cudaMalloc((void**)&d_UV, sizeof(float) * out_channels*P*16);
+
+    // calc_U(kernel, U, in_channels, out_channels); // CPU function, as it can be calculated beforehand
+
+    // cudaMemcpy(d_U, U, sizeof(float) * 128, cudaMemcpyHostToDevice);
+
+    // calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(4, 4)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col);
+    // calc_UV<<<dim3(out_channels/2, P/2, 16), dim3(2, 2)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+    // calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(2, 2)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num);
+
+    // cudaMemcpy(output, d_out, sizeof(float) * 288, cudaMemcpyDeviceToHost);
+    
+    // for(int i=0; i<2; i++){
+    //     for(int j=0; j<4; j++){
+    //         for(int k=0; k<6; k++){
+    //             for(int l=0; l<6; l++){
+    //                 float now_element = output[i*144 + j*36 + k*6 + l];
+    //                 printf("%f ", now_element);
+    //             }
+    //             printf(" \n");
+    //         }
+    //         printf(" \n");
+    //     }
+    // }
+    // return 0;
+
+    int in_channels=2, out_channels=4, inp_row=7, inp_col=7;
+    int P=32, batch_size=2, tile_num=16, out_row=7, out_col=7;
+    float kernel[72], input[196], output[392]; // kernel: 4*2*3*3, input: 2*2*7*7, output: 2*4*7*7
     for(int i=0; i<72; i++) kernel[i] = i;
-    for(int i=0; i<144; i++) input[i] = i;
+    for(int i=0; i<196; i++) input[i] = i;
     
     float *d_kernel, *d_inp, *d_out;
     float *d_V, *d_U, *d_UV;
 
-    float U[128]; // out_channel(4)*in_channel(2)*16
+    float U[288]; // out_channel(4)*in_channel(2)*36
 
     cudaMalloc((void**)&d_kernel, sizeof(float) * 72);
-    cudaMalloc((void**)&d_inp, sizeof(float) * 144);
-    cudaMalloc((void**)&d_out, sizeof(float) * 288);
+    cudaMalloc((void**)&d_inp, sizeof(float) * 196);
+    cudaMalloc((void**)&d_out, sizeof(float) * 392);
 
     cudaMemcpy(d_kernel, kernel, sizeof(float) * 72, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_inp, input, sizeof(float) * 144, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_inp, input, sizeof(float) * 196, cudaMemcpyHostToDevice);
 
     cudaMalloc((void**)&d_V, sizeof(float) * in_channels*P*16);
     cudaMalloc((void**)&d_U, sizeof(float) * out_channels*in_channels*16);
@@ -363,17 +416,17 @@ int main()
 
     cudaMemcpy(d_U, U, sizeof(float) * 128, cudaMemcpyHostToDevice);
 
-    calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(4, 4)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col);
+    calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(4, 4)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col, 4, 4);
     calc_UV<<<dim3(out_channels/2, P/2, 16), dim3(2, 2)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
-    calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(2, 2)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num);
+    calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(2, 2)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num, 4, 4);
 
-    cudaMemcpy(output, d_out, sizeof(float) * 288, cudaMemcpyDeviceToHost);
+    cudaMemcpy(output, d_out, sizeof(float) * 392, cudaMemcpyDeviceToHost);
     
     for(int i=0; i<2; i++){
         for(int j=0; j<4; j++){
-            for(int k=0; k<6; k++){
-                for(int l=0; l<6; l++){
-                    float now_element = output[i*144 + j*36 + k*6 + l];
+            for(int k=0; k<7; k++){
+                for(int l=0; l<7; l++){
+                    float now_element = output[i*196 + j*49 + k*7 + l];
                     printf("%f ", now_element);
                 }
                 printf(" \n");

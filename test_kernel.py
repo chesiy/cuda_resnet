@@ -12,8 +12,8 @@ batch_size = 2
 in_channels = 2
 out_channels = 4
 kernel_size = 3
-inp_row = 8
-inp_col = 8
+inp_row = 7
+inp_col = 7
 
 # batch_size = 2
 # in_channels = 2

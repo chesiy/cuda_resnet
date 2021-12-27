@@ -471,25 +471,25 @@ int main()
 
     cudaMemcpy(d_U, U, sizeof(float) * 128, cudaMemcpyHostToDevice);
 
-    float sumTime = 0;
+    // float sumTime = 0;
 
-    for(int i=0; i<100;i++){
-        float Onetime;
-        cudaEvent_t start, stop;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
-        cudaEventRecord(start, 0);
+    float Onetime;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);
 
+    for(int i=0; i<10000;i++){
         calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(4, 4)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col, 4, 4);
-        // calc_UV<<<dim3((out_channels+3)/4, (P+3)/4, 16), dim3(4, 4)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
-        calc_UV_2<<<dim3((out_channels+3)/4, (P+3)/4), dim3(4, 4, 16)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+        calc_UV<<<dim3((out_channels+3)/4, (P+3)/4, 16), dim3(4, 4)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+        // calc_UV_2<<<dim3((out_channels+3)/4, (P+3)/4), dim3(4, 4, 16)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
         calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(2, 2)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num, 4, 4);
-
-        cudaDeviceSynchronize();
-        cudaEventRecord(stop, 0);
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&Onetime, start, stop);
     }
+
+    cudaDeviceSynchronize();
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&Onetime, start, stop);
 
     cudaMemcpy(output, d_out, sizeof(float) * 392, cudaMemcpyDeviceToHost);
     
@@ -506,6 +506,6 @@ int main()
         }
     }
 
-    printf("Total Time is: %f\n", sumTime);
+    printf("Total Time is: %f\n", Onetime);
     return 0;
 }

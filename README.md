@@ -7,3 +7,6 @@
 
 ### Test conv_winograd_4x4_3x3.cu
 ```nvcc conv_winograd_4x4_3x3.cu -std=c++11 -lcudnn -o out_4x4```
+
+### Test conv_im2col.cu
+```nvcc conv_im2col.cu -std=c++11 -lcudnn -o out_im2col```

@@ -2,7 +2,7 @@
 #include <iostream>
 #include <math.h>
 
-# define mm_tilewidth 7 // tile width when do matrix multiply
+# define mm_tilewidth 8 // tile width when do matrix multiply
 
 void serial_matmul(float* A0, float*B0, float*C0, 
     int dim_1, int dim_2, int dim_3){
@@ -180,6 +180,46 @@ __global__ void calc_UV(float* U, float* V, float* out, int out_channels, int in
 
         for(int k=0; k<mm_tilewidth; k++){
             p_value += Uds[threadIdx.x][k] * Vds[k][threadIdx.y];
+        }
+        __syncthreads();
+    }
+
+    // printf("%d %d %d %f %f %f \n", row, col, place_in_16, p_value, Uds[threadIdx.x][threadIdx.y], Vds[threadIdx.x][threadIdx.y]);
+
+    if(row < out_channels && col < P)
+        out[row*P*36 + col*36 + place_in_36] = p_value;
+}
+
+
+__global__ void calc_UV_2(float* U, float* V, float* out, int out_channels, int in_channels, int P){
+    // U: out_channels x in_channels x 36, V: in_channels x P x 36, out: out_channels x P x 36
+    __shared__ float Uds[mm_tilewidth][mm_tilewidth][36];
+    __shared__ float Vds[mm_tilewidth][mm_tilewidth][36];
+    
+    int row = blockIdx.x * mm_tilewidth + threadIdx.x;
+    int col = blockIdx.y * mm_tilewidth + threadIdx.y;
+    int place_in_36 = threadIdx.z;
+    float p_value = 0;
+
+    int iter_num = (in_channels+mm_tilewidth-1)/mm_tilewidth;
+    for(int m=0; m<iter_num; m++){
+        int read_col = m*mm_tilewidth+threadIdx.y;
+        // U[row, m*mm_tilewidth+threadIdx.y, place_in_36]
+        if(read_col < in_channels)
+            Uds[threadIdx.x][threadIdx.y][place_in_36] = U[row*in_channels*36 + read_col*36 + place_in_36]; 
+        else
+            Uds[threadIdx.x][threadIdx.y][place_in_36] = 0;
+        
+        int read_row = m*mm_tilewidth+threadIdx.x;
+        // V[m*mm_tilewidth+threadIdx.x, col, place_in_36]
+        if(read_row < in_channels)
+            Vds[threadIdx.x][threadIdx.y][place_in_36] = V[read_row*P*36 + col*36 + place_in_36];
+        else
+            Vds[threadIdx.x][threadIdx.y][place_in_36] = 0;
+        __syncthreads();
+
+        for(int k=0; k<mm_tilewidth; k++){
+            p_value += Uds[threadIdx.x][k][place_in_36] * Vds[k][threadIdx.y][place_in_36];
         }
         __syncthreads();
     }
@@ -446,9 +486,23 @@ int main()
 
     cudaMemcpy(d_U, U, sizeof(float) * 288, cudaMemcpyHostToDevice);
 
-    calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(6, 6)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col, 2, 2);
-    calc_UV<<<dim3((out_channels+6)/7, (P+6)/7, 36), dim3(7, 7)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
-    calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(6, 6)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num, 2, 2);
+    float Onetime;
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);
+
+    for(int i=0; i<10000;i++){
+        calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(6, 6)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col, 2, 2);
+        calc_UV<<<dim3((out_channels+7)/8, (P+7)/8, 36), dim3(8, 8)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+        // calc_UV_2<<<dim3(out_channels/2, P/2), dim3(2, 2, 36)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+        calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(6, 6)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num, 2, 2);
+    }
+
+    cudaDeviceSynchronize();
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&Onetime, start, stop);
 
     cudaMemcpy(output, d_out, sizeof(float) * 392, cudaMemcpyDeviceToHost);
     
@@ -464,5 +518,7 @@ int main()
             printf(" \n");
         }
     }
+
+    printf("Total Time is: %f\n", Onetime);
     return 0;
 }

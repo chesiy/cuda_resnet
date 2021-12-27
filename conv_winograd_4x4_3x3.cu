@@ -494,7 +494,7 @@ int main()
 
     for(int i=0; i<10000;i++){
         calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(6, 6)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col, 2, 2);
-        calc_UV<<<dim3((out_channels+7)/8, (P+7)/8, 36), dim3(8, 8)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+        calc_UV<<<dim3((out_channels+mm_tilewidth-1)/mm_tilewidth, (P+mm_tilewidth-1)/mm_tilewidth, 36), dim3(mm_tilewidth, mm_tilewidth)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
         // calc_UV_2<<<dim3(out_channels/2, P/2), dim3(2, 2, 36)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
         calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(6, 6)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num, 2, 2);
     }

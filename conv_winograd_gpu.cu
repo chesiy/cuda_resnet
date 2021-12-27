@@ -4,7 +4,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-# define mm_tilewidth 4 // tile width when do matrix multiply
+# define mm_tilewidth 8 // tile width when do matrix multiply
 
 void serial_matmul(float* A0, float*B0, float*C0, 
     int dim_1, int dim_2, int dim_3){
@@ -481,8 +481,10 @@ int main()
 
     for(int i=0; i<10000;i++){
         calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(4, 4)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col, 4, 4);
-        calc_UV<<<dim3((out_channels+3)/4, (P+3)/4, 16), dim3(4, 4)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
-        // calc_UV_2<<<dim3((out_channels+3)/4, (P+3)/4), dim3(4, 4, 16)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+        calc_UV<<<dim3((out_channels+mm_tilewidth-1)/mm_tilewidth, (P+mm_tilewidth-1)/mm_tilewidth, 16), dim3(mm_tilewidth, mm_tilewidth)>>>
+                    (d_U, d_V, d_UV, out_channels, in_channels, P);
+        // calc_UV_2<<<dim3((out_channels+mm_tilewidth-1)/mm_tilewidth, (P+mm_tilewidth-1)/mm_tilewidth), dim3(mm_tilewidth, mm_tilewidth, 16)>>>
+        //         (d_U, d_V, d_UV, out_channels, in_channels, P);
         calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(2, 2)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num, 4, 4);
     }
 

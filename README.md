@@ -10,3 +10,6 @@
 
 ### Test conv_im2col.cu
 ```nvcc conv_im2col.cu -std=c++11 -lcudnn -o out_im2col```
+
+### Test conv_im2col_transpose.cu
+```nvcc conv_im2col_transpose.cu -std=c++11 -lcudnn -o out_t_im2col```

@@ -24,17 +24,18 @@ void matgen(float* a, int x, int y)
     }
 }
 
-template<typename Dtype>
-void print_tensor(tensor<Dtype>* Ts){
-    for(int i=0;i<Ts->batch;i++){
-        for(int j=0;j<Ts->channels;j++){
-            for(int k=0;k<Ts->height;k++){
-                for(int t=0;t<Ts->width;t++){
-                    printf("%f ",Ts->data[i*(Ts->channels*Ts->width*Ts->height)+j*(Ts->width*Ts->height)+k*Ts->width+t]);
+void print_tensor(float* Ts, int batch, int channels, int height, int width){
+    for(int i=0;i<batch;i++){
+        for(int j=0;j<channels;j++){
+            for(int k=0;k<height;k++){
+                for(int t=0;t<width;t++){
+                    printf("%f ",Ts[i*(channels*width*height)+j*(width*height)+k*width+t]);
                 }
                 printf("\n");
+//                break;
             }
             printf("\n");
+//            break;
         }
         printf("\n");
     }
@@ -44,29 +45,29 @@ int main()
 {
     printf("Test start!\n");
 
-    int x = 2*8;
-    int y = 3*8;
+    int x = 1*1;
+    int y = 16*1;
 //    int z = 1024;
 
     float *M = (float*)malloc(sizeof(float)*x * y);
-
     srand(0);
     matgen(M, x, y);			//产生矩阵M
+    print_tensor(M,1,16,1,1);
 
-    auto *A=new tensor<float>(M,8,8,3,2);
+//    auto *A=new tensor<float>(M,8,8,3,2);
 
-    print_tensor<float>(A);
+//    print_tensor<float>(A);
 
-    tensor<float>* B;
+//    tensor<float>* B;
+//
+//    tuple<int,int> *kernel=new tuple<int,int>{7,7};
+//    tuple<int,int> *padding=new tuple<int,int>{3,3};
+//    tuple<int,int> *stride=new tuple<int,int>{2,2};
+//    tuple<int,int> *dilations=new tuple<int,int>{1,1};
 
-    tuple<int,int> *kernel=new tuple<int,int>{7,7};
-    tuple<int,int> *padding=new tuple<int,int>{3,3};
-    tuple<int,int> *stride=new tuple<int,int>{2,2};
-    tuple<int,int> *dilations=new tuple<int,int>{1,1};
-
-    int in_channel=3, out_channel=4;
-    float *W = (float*)malloc(sizeof(float) * in_channel * out_channel * get<0>(*kernel)*get<1>(*kernel));
-    matgen(W, in_channel* out_channel, get<0>(*kernel) * get<1>(*kernel));
+    int in_channel=16, out_channel=8;
+    float *W = (float*)malloc(sizeof(float) * in_channel * out_channel);
+    matgen(W, in_channel* out_channel, 1);
     float *Bias = (float*)malloc(sizeof(float) * out_channel);
     matgen(Bias, out_channel,1);
 
@@ -91,10 +92,10 @@ int main()
 //    mxp.forward(A,B);
 
     /// ====== Test Convolution ======
-    printf("before conv\n");
-    conv2d<float> conv{3,4, W, Bias,7, 1, 3, 2};
-    printf("conv ok\n");
-    conv.forward(A,B);
+//    printf("before conv\n");
+//    conv2d<float> conv{3,4, W, Bias,7, 1, 3, 2};
+//    printf("conv ok\n");
+//    conv.forward(A,B);
 
     /// ==== Test AvgPooling ====
 //    printf("before pooling\n");
@@ -103,9 +104,20 @@ int main()
 //    avgp.forward(A,B);
 
     /// ==== Test Gemm ====
-//    Gemm<float> gemm{in_channel,out_channel,W,Bias};
-//    gemm.forward(A,B);
+    float* B;
+    float* A;
+    cudaMalloc((void**)&A, x*y* sizeof(float));
+    cudaMemcpy((void*)A, (void*)M, x*y*sizeof(float), cudaMemcpyHostToDevice);
 
+    int height_B, width_B, channel_B;
+    Gemm gemm{in_channel,out_channel,W,Bias};
+    gemm.forward(A, 1, 1, 16, 1,
+                  B, height_B, width_B, channel_B);
+
+    float* tensor_B = (float*)malloc(sizeof(float)*height_B*width_B*channel_B*1);
+    cudaMemcpy((void*)tensor_B, (void*)B, 1 * width_B * height_B * channel_B * sizeof(float), cudaMemcpyDeviceToHost);
+
+    print_tensor(tensor_B,4,channel_B,height_B,width_B);
     /// ==== Test BasicBlock ====
 //    BasicBlock<float> basic{in_channel, out_channel, W, Bias, W2, Bias2};
 //    basic.forward(A, B);
@@ -119,8 +131,8 @@ int main()
 
 
     /// =========================
-    printf("B: %d %d %d %d\n",B->height,B->width,B->channels,B->batch);
-    print_tensor<float>(B);
+//    printf("B: %d %d %d %d\n",B->height,B->width,B->channels,B->batch);
+//    print_tensor<float>(B);
 
     free(M);
 

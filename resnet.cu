@@ -27,7 +27,7 @@ void print_tensor(float* Ts, int batch, int channels, int height, int width){
 
 class Resnet18{
 private:
-    conv2d *conv1;
+    conv_im2col *conv1;
     Relu *relu;
     maxpooling2d *maxpool;
     GlobalAvgpooling *avgpool;
@@ -38,7 +38,7 @@ private:
 
 public:
     Resnet18(map<string, float*> param):Parameters(param){
-        conv1 = new conv2d{3,64,Parameters["193"],Parameters["194"],7,1,3,2};
+        conv1 = new conv_im2col{3,64,Parameters["193"],Parameters["194"],7,1,3,2};
         relu = new Relu{};
         maxpool = new maxpooling2d{3,1,2};
         layer1 = new BasicBlock{64,64,Parameters["196"],Parameters["197"],Parameters["199"],Parameters["200"],4};

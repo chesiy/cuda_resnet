@@ -234,6 +234,53 @@ __global__ void simple_matmul(const float* A, float* B, const float* Weight, con
     }
 }
 
+// bad......still wrong
+__global__ void matmul(const float* A, float* B, const float* Weight, const float* Bias,
+                              const int nthreads, const int dim1, const int dim2, const int dim3){
+    // A: dim1 x dim2, Weight: dim3 x  dim2, B: dim1 x dim3 (Weight has been transposed) Bias: dim3
+    // A x Weight + Bias = B
+    const int TILE_WIDTH = 4;
+    printf("A:%dx%d W:%dx%d B:%dx%d\n",dim1,dim2,dim3,dim2,dim1,dim3);
+    int Row = blockIdx.y * TILE_WIDTH + threadIdx.y;
+    int Col = blockIdx.x * TILE_WIDTH + threadIdx.x;
+
+    printf("block %d %d thread %d %d\n",blockDim.x,blockDim.y,gridDim.x,gridDim.y);
+    float Pvalue=0.0;
+
+    __shared__ float a_share[TILE_WIDTH][TILE_WIDTH];
+    __shared__ float b_share[TILE_WIDTH][TILE_WIDTH];
+
+    if(Col>=TILE_WIDTH||(Row>=dim1 && Row>= dim3)){
+        return;
+    }
+
+    for(int i=0; i< dim2/TILE_WIDTH;i++){
+        a_share[threadIdx.y][threadIdx.x]=A[Row*dim2+(i*TILE_WIDTH+threadIdx.x)];
+        b_share[threadIdx.y][threadIdx.x]=Weight[Col*dim2+(i*TILE_WIDTH+threadIdx.y)];
+        float aa = a_share[threadIdx.y][threadIdx.x];
+        float bb = b_share[threadIdx.y][threadIdx.x];
+        printf("i: %d %d %d %d %d row:%d col:%d %f %f\n",i,blockIdx.y,blockIdx.x,threadIdx.y,threadIdx.x,Row,Col,aa,bb);
+        __syncthreads();
+
+        for(int k=0; k<TILE_WIDTH; k++){
+            Pvalue += (a_share[threadIdx.y][k]*b_share[k][threadIdx.x]);
+            float a = a_share[threadIdx.y][k];
+            float b = b_share[k][threadIdx.x];
+            printf("row:%d col:%d a:%f b:%f\n", Row,Col,a,b);
+        }
+        __syncthreads();
+    }
+
+    if(Col>=dim3||Row>=dim1){
+        return;
+    }
+
+    B[Row * dim3 + Col] = Pvalue+Bias[Col];
+
+    printf("row:%d col:%d P:%f %f\n", Row,Col,Pvalue+Bias[Col],Pvalue);
+}
+
+
 
 __global__ void conv_relu(float* A_b, float*C_b, float*kernel, float* bias, int nthreads,
                           int batch_size, int in_numrow, int in_numcol, int in_channels,

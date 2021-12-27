@@ -160,7 +160,6 @@ namespace winograd2{
             out[row*P*16 + col*16 + place_in_16] = p_value;
     }
 
-
     __global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out_numrow, int out_numcol, int tile_num, int tile_numrow, int tile_numcol){
         // each block has 4 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
         // M: out_channels x P * 16

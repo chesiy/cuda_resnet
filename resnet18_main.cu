@@ -95,7 +95,6 @@ void inference(float *input, float *&output){
 	resnet18->forward(input, 224, 224, 3, 1,output, height_B, width_B, channel_B);
 }
 
-
 int main()
 {
     initModel(); // 读取网络权重

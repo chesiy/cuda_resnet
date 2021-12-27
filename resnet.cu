@@ -41,7 +41,7 @@ public:
     Resnet18(map<string, float*> param):Parameters(param){
 //        cudaStreamCreate(&stream1);
         cudaStreamCreateWithFlags(&stream1,cudaStreamNonBlocking);
-        conv1 = new conv_im2col{3,64,Parameters["193"],Parameters["194"], NULL, 7,1,3,2};
+        conv1 = new conv_im2col{3,64,Parameters["193"],Parameters["194"], NULL, true, 7,1,3,2};
         relu = new Relu{};
         maxpool = new maxpooling2d{3,1,2};
         layer1 = new BasicBlock{64,64,Parameters["196"],Parameters["197"],Parameters["199"],Parameters["200"],4};
@@ -72,137 +72,62 @@ public:
         int height1, width1, channel1;
         int height2, width2, channel2;
 
-//        float Onetime;
-//        cudaEvent_t start, stop;
-//        cudaEventCreate(&start);
-//        cudaEventCreate(&stop);
-//        cudaEventRecord(start, 0);
-
         float* A;
         float* B;
         cudaMalloc((void**)&A, batch * width_A * height_A * channel_A * sizeof(float));
         cudaMemcpy((void*)A, (void*)tensor_A, batch * width_A * height_A * channel_A * sizeof(float), cudaMemcpyHostToDevice);
-
-//        cudaDeviceSynchronize();
-//        cudaEventRecord(stop, 0);
-//        cudaEventSynchronize(stop);
-//        cudaEventElapsedTime(&Onetime, start, stop);
-//        printf("Memcpy time: %f\n", Onetime);
-
-//        cudaEventRecord(start, 0);
-
+        printf("begin\n");
+        //conv+relu
         conv1->forward(A, height_A, width_A, channel_A, batch,
                        tmp_out1, height1, width1, channel1);
+        printf("conv1+relu done\n");
 
-//        cudaDeviceSynchronize();
-//        cudaEventRecord(stop, 0);
-//        cudaEventSynchronize(stop);
-//        cudaEventElapsedTime(&Onetime, start, stop);
-//        printf("conv1 time: %f\n", Onetime);
-
-//        cudaEventRecord(start, 0);
-
-        relu->forward(tmp_out1, height1, width1, channel1, batch,
-                      tmp_out2, height2, width2, channel2);
-
+        maxpool->forward(tmp_out1, height1, width1, channel1, batch,
+                         tmp_out2, height2, width2, channel2);
         cudaFree(tmp_out1);
-        maxpool->forward(tmp_out2, height2, width2, channel2, batch,
-                         tmp_out1, height1, width1, channel1);
+        printf("layer1 begin\n");
+        layer1->forward(tmp_out2, height2, width2, channel2, batch,
+                        tmp_out1, height1, width1, channel1);
         cudaFree(tmp_out2);
-
-//        cudaDeviceSynchronize();
-//        cudaEventRecord(stop, 0);
-//        cudaEventSynchronize(stop);
-//        cudaEventElapsedTime(&Onetime, start, stop);
-//        printf("relu+maxpooling time: %f\n", Onetime);
-
-//        cudaEventRecord(start, 0);
-
-        layer1->forward(tmp_out1, height1, width1, channel1, batch,
+        printf("layer2 begin\n");
+        layer2->forward(tmp_out1, height1, width1, channel1, batch,
+                        tmp_out2, height2, width2, channel2);
+        cudaFree(tmp_out1);
+        printf("neck layer1 begin\n");
+        neck_layer1->forward(tmp_out2, height2, width2, channel2, batch,
+                             tmp_out1, height1, width1, channel1);
+        cudaFree(tmp_out2);
+        printf("layer3 begin\n");
+        layer3->forward(tmp_out1, height1, width1, channel1, batch,
                         tmp_out2, height2, width2, channel2);
         cudaFree(tmp_out1);
 
-//        cudaDeviceSynchronize();
-//        cudaEventRecord(stop, 0);
-//        cudaEventSynchronize(stop);
-//        cudaEventElapsedTime(&Onetime, start, stop);
-//        printf("basic block1 time: %f\n", Onetime);
-
-//        cudaEventRecord(start, 0);
-
-        layer2->forward(tmp_out2, height2, width2, channel2, batch,
-                        tmp_out1, height1, width1, channel1);
+        neck_layer2->forward(tmp_out2, height2, width2, channel2, batch,
+                             tmp_out1, height1, width1, channel1);
         cudaFree(tmp_out2);
+        printf("layer4 begin\n");
+        layer4->forward(tmp_out1, height1, width1, channel1, batch,
+                        tmp_out2, height2, width2, channel2);
 
-//        cudaDeviceSynchronize();
-//        cudaEventRecord(stop, 0);
-//        cudaEventSynchronize(stop);
-//        cudaEventElapsedTime(&Onetime, start, stop);
-//        printf("basic block2 time: %f\n", Onetime);
-
-//        cudaEventRecord(start, 0);
-
-        neck_layer1->forward(tmp_out1, height1, width1, channel1, batch,
-                             tmp_out2, height2, width2, channel2);
         cudaFree(tmp_out1);
 
-//        cudaDeviceSynchronize();
-//        cudaEventRecord(stop, 0);
-//        cudaEventSynchronize(stop);
-//        cudaEventElapsedTime(&Onetime, start, stop);
-//        printf("bottleneck1 time: %f\n", Onetime);
-//
-//        cudaEventRecord(start, 0);
-
-        layer3->forward(tmp_out2, height2, width2, channel2, batch,
-                        tmp_out1, height1, width1, channel1);
-//        printf("layer3\n");
+        neck_layer3->forward(tmp_out2, height2, width2, channel2, batch,
+                             tmp_out1, height1, width1, channel1);
         cudaFree(tmp_out2);
-        neck_layer2->forward(tmp_out1, height1, width1, channel1, batch,
-                             tmp_out2, height2, width2, channel2);
+        printf("layer5 begin\n");
+        layer5->forward(tmp_out1, height1, width1, channel1, batch,
+                        tmp_out2, height2, width2, channel2);
+
         cudaFree(tmp_out1);
-        layer4->forward(tmp_out2, height2, width2, channel2, batch,
-                        tmp_out1, height1, width1, channel1);
-//        printf("layer4\n");
+        printf("avgpool begin %d %d %d %d\n", height2, width2, channel2, batch);
+        avgpool->forward(tmp_out2, height2, width2, channel2, batch,
+                         tmp_out1, height1, width1, channel1);
         cudaFree(tmp_out2);
-        neck_layer3->forward(tmp_out1, height1, width1, channel1, batch,
-                             tmp_out2, height2, width2, channel2);
-        cudaFree(tmp_out1);
-        layer5->forward(tmp_out2, height2, width2, channel2, batch,
-                        tmp_out1, height1, width1, channel1);
-
-        cudaFree(tmp_out2);
-
-//        cudaDeviceSynchronize();
-//        cudaEventRecord(stop, 0);
-//        cudaEventSynchronize(stop);
-//        cudaEventElapsedTime(&Onetime, start, stop);
-//        printf("layer3 4 5 time: %f\n", Onetime);
-
-//        cudaEventRecord(start, 0);
-
-        avgpool->forward(tmp_out1, height1, width1, channel1, batch,
-                         tmp_out2, height2, width2, channel2);
-        cudaFree(tmp_out1);
-
-//        cudaDeviceSynchronize();
-//        cudaEventRecord(stop, 0);
-//        cudaEventSynchronize(stop);
-//        cudaEventElapsedTime(&Onetime, start, stop);
-//        printf("avgpooling time: %f\n", Onetime);
-
-//        cudaEventRecord(start, 0);
-
-        gemm->forward(tmp_out2, height2, width2, channel2, batch,
+        printf("gemm begin %d %d %d %d\n", height1, width1, channel1, batch);
+        gemm->forward(tmp_out1, height1, width1, channel1, batch,
                       B, height_B, width_B, channel_B);
-
-//        cudaDeviceSynchronize();
-//        cudaEventRecord(stop, 0);
-//        cudaEventSynchronize(stop);
-//        cudaEventElapsedTime(&Onetime, start, stop);
-//        printf("gemm time: %f\n", Onetime);
-
-        tensor_B = (float*)malloc( sizeof(float)*height_B*width_B*channel_B*batch );
+        printf("gemm done \n");
+        tensor_B = (float*)malloc( sizeof(float)*height_B*width_B*channel_B*batch);
         cudaMemcpy((void*)tensor_B, (void*)B, batch * width_B * height_B * channel_B * sizeof(float), cudaMemcpyDeviceToHost);
 
     }

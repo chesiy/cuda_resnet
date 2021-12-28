@@ -234,6 +234,59 @@ __global__ void simple_matmul(const float* A, float* B, const float* Weight, con
     }
 }
 
+
+__global__ void matmul_bias(float* K_mm, float* Inp_mm, float* bias, float* out, int batch_size, int out_channel, int out_numrow,
+                                  int out_numcol, int l1, int l2, int l3){
+    // K_mm: l1 x l2, inp_mm: l3 x l2,
+    // l1=out_channel, l2=in_channel x kernel_size x kernel_size, l3=out_numrow x out_numcol
+    // block: batch x floor(l3 / mm_tile_width) x floor(l1 / mm_tile_width), thread: mm_tile_width x mm_tile_width
+    const int mm_tilewidth = 2;
+
+    __shared__ float Ks[mm_tilewidth][mm_tilewidth];
+    __shared__ float Is[mm_tilewidth][mm_tilewidth];
+
+    int row = blockIdx.y * mm_tilewidth + threadIdx.y;
+    int col = blockIdx.z * mm_tilewidth + threadIdx.x;
+
+    float p_value = 0;
+
+    int iter_num = (l2+mm_tilewidth-1)/mm_tilewidth;
+    for(int m=0; m<iter_num; m++){
+        int read_col = m*mm_tilewidth+threadIdx.x;
+        // U[row, m*mm_tilewidth+threadIdx.y]
+        if(read_col < l2){
+            Ks[threadIdx.y][threadIdx.x] = K_mm[row*l2 + read_col];
+        }
+        else{
+            Ks[threadIdx.y][threadIdx.x] = 0;
+        }
+
+        int read_row = m*mm_tilewidth+threadIdx.y;
+        if(read_row < l2){
+            Is[threadIdx.y][threadIdx.x] = Inp_mm[blockIdx.x*l2*l3 + col*l2 + read_row];
+        }
+        else{
+            Is[threadIdx.y][threadIdx.x] = 0;
+        }
+
+        __syncthreads();
+
+        for(int k=0; k<mm_tilewidth; k++){
+            p_value += Ks[threadIdx.y][k] * Is[k][threadIdx.x];
+        }
+        __syncthreads();
+    }
+
+    // out[batch_size, cur_out_channel, cur_out_row, cur_out_col]
+    if(row < l1 && col < l3){
+        // int cur_out_channel = row;
+        // int cur_out_row = col / out_numrow, cur_out_col = col % out_numrow;
+        int idx = blockIdx.x * l1 * l3 + row * l3 + col;
+        out[idx] = p_value+bias[row];
+    }
+}
+
+
 // bad......still wrong
 __global__ void matmul(const float* A, float* B, const float* Weight, const float* Bias,
                               const int nthreads, const int dim1, const int dim2, const int dim3){

@@ -401,70 +401,19 @@ public:
 
         cudaMalloc((void**)&B, batch * width_B * height_B * channel_B * sizeof(float));
 
-        int nthreads = batch * out_dim;
+//        int nthreads = batch * out_dim;
 
-        dim3 blockNum(batch*out_dim/400+1,1);
-        dim3 threadsPerBlock(20, 20);
-
-        simple_matmul<<<blockNum, threadsPerBlock>>>(A, B, Weight, Bias, nthreads, batch, in_dim, out_dim);
-//        printf("block:%f %f %d %d\n", ceil(batch*1.0/4), ceil(out_dim*1.0/2), out_dim, batch);
-//        dim3 blockNum(ceil(batch*1.0/4),ceil(out_dim*1.0/4));
-//        dim3 threadsPerBlock(4, 4);
+//        dim3 blockNum(batch*out_dim/400+1,1);
+//        dim3 threadsPerBlock(20, 20);
 //
-//        matmul<<<blockNum, threadsPerBlock>>>(A, B, Weight, Bias, nthreads, batch, in_dim, out_dim);
-        //      printf("gemm done!: %f %f %d %d %d %d\n",tensor_B->data[0], tensor_B->data[132],
-        //             tensor_B->batch, tensor_B->channels,tensor_B->height,tensor_B->width);
-    }
-};
+//        simple_matmul<<<blockNum, threadsPerBlock>>>(A, B, Weight, Bias, nthreads, batch, in_dim, out_dim);
 
-
-class conv2d_relu{
-private:
-    int in_channels;
-    int out_channels;
-    int kernel_size;
-    int dialations;
-    int padding;
-    int strides;
-    float* Weight;
-    float* Bias;
-
-public:
-    conv2d_relu(int in_c, int out_c, float* weight, float* bias, const int kernel_sz, const int dialations, const int padding, const int strides):
-            in_channels(in_c),out_channels(out_c),kernel_size(kernel_sz),dialations(dialations),padding(padding),strides(strides){
-
-        cudaMalloc((void**)&Weight, kernel_size*kernel_size * in_channels * out_channels * sizeof(float));
-        cudaMalloc((void**)&Bias, 1*1*out_channels* sizeof(float));
-
-        cudaMemcpy((void*)Weight, (void*)weight, kernel_size*kernel_size * in_channels * out_channels * sizeof(float), cudaMemcpyHostToDevice);
-        cudaMemcpy((void*)Bias, (void*)bias, 1*1 * out_channels * sizeof(float), cudaMemcpyHostToDevice);
-
-    }
-    //input->tensor_A; output->tensor_B
-    void forward(float* A, int height_A, int width_A, int channel_A, int batch,
-                 float*& B, int& height_B, int &width_B, int &channel_B){
-
-//        float* input = (float*) malloc(sizeof(float) * height_A * width_A * channel_A * batch);
-//        cudaMemcpy((void *)input, (void *) A, batch * width_A * height_A * channel_A * sizeof(float),
-//                   cudaMemcpyDeviceToHost);
-
-        // =================================================计算输出大小
-        height_B = (height_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
-        width_B = (width_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
-        channel_B = out_channels;
-
-        cudaMalloc((void**)&B, batch * width_B * height_B * out_channels * sizeof(float));
-
-        // =================================================执行
-        int nthreads = batch * width_B * height_B * out_channels;
-
-        int num=nthreads/400+1;
-        dim3 blockNum(num, 1);
-        dim3 threadsPerBlock(20, 20);
-
-        conv_relu<<<blockNum, threadsPerBlock>>>(A, B, Weight, Bias, nthreads,batch, height_A, width_A, in_channels ,height_B, width_B, out_channels,
-                                                 kernel_size,kernel_size,strides,strides,padding,padding);
-
+        const int mm_tilewidth = 2;
+        dim3 blockNum(batch, (out_dim+mm_tilewidth-1)/mm_tilewidth, (height_B*width_B+mm_tilewidth-1)/mm_tilewidth);
+        dim3 threadsPerBlock(mm_tilewidth, mm_tilewidth);
+        matmul_bias<<<blockNum,threadsPerBlock>>>(Weight, A, Bias, B, batch, out_dim,
+                height_A, width_A,
+                out_dim, in_dim, (height_B*width_B));
     }
 };
 
@@ -481,7 +430,6 @@ private:
     conv_wino_2x2_3x3 *conv2_2x2;
     conv_wino_4x4_3x3 *conv1_4x4;
     conv_wino_4x4_3x3 *conv2_4x4;
-    conv2d_relu *conv1_relu;//merge
     Relu *relu;
     Add_Relu *add_relu;
     int conv_type;
@@ -493,7 +441,6 @@ public:
             Weight1(weight1),Bias1(bias1),Weight2(weight2),Bias2(bias2),conv_type(conv_type)
     {
         if (conv_type == 1){
-//            conv1_relu =new conv2d_relu{_inplanes, _planes, Weight1,Bias1, 3, 1, 1, 1};//merge
             conv1 = new conv_im2col{_inplanes, _planes, Weight1,Bias1, true, 3, 1, 1, 1};//3*3卷积，stride=1
             conv2 = new conv_im2col{_planes, _planes, Weight2, Bias2, false, 3, 1, 1, 1};//3*3卷积，stride=1
         }else if (conv_type == 2){

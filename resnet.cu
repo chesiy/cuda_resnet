@@ -38,7 +38,7 @@ private:
 
 public:
     Resnet18(map<string, float*> param):Parameters(param){
-        conv1 = new conv_im2col{3,64,Parameters["193"],Parameters["194"],7,1,3,2};
+        conv1 = new conv_im2col{3,64,Parameters["193"],Parameters["194"],true,7,1,3,2};
         relu = new Relu{};
         maxpool = new maxpooling2d{3,1,2};
         layer1 = new BasicBlock{64,64,Parameters["196"],Parameters["197"],Parameters["199"],Parameters["200"],4};
@@ -66,18 +66,18 @@ public:
 
 //        printf("======= forward begin =======!\n");
         conv1->forward(A, height_A, width_A, channel_A, batch,
-                       tmp_out1, height1, width1, channel1);
+                       tmp_out2, height2, width2, channel2);
 //        printf("after conv1 %d %d %d %d %f %f \n",
 //               batch, channel1,height1,width1,
 //               tmp_out1[0], tmp_out1[10]);
 
-        relu->forward(tmp_out1, height1, width1, channel1, batch,
-                      tmp_out2, height2, width2, channel2);
+//        relu->forward(tmp_out1, height1, width1, channel1, batch,
+//                      tmp_out2, height2, width2, channel2);
 //        printf("after relu %d %d %d %d %f %f \n",
 //               batch, channel2, height2, width2,
 //               tmp_out2[0], tmp_out2[40]);
 
-        cudaFree(tmp_out1);
+//        cudaFree(tmp_out1);
         maxpool->forward(tmp_out2, height2, width2, channel2, batch,
                          tmp_out1, height1, width1, channel1);
 //        printf("after maxpooling %d %d %d %d %f %f \n",

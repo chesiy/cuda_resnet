@@ -65,10 +65,11 @@ private:
     int strides;
     float* Weight;
     float* Bias;
+    bool relu;
 
 public:
-    conv_im2col(int in_c, int out_c, float* weight, float* bias, const int kernel_sz, const int dialations, const int padding, const int strides):
-            in_channels(in_c),out_channels(out_c),kernel_size(kernel_sz),dialations(dialations),padding(padding),strides(strides){
+    conv_im2col(int in_c, int out_c, float* weight, float* bias, bool relu, const int kernel_sz, const int dialations, const int padding, const int strides):
+            in_channels(in_c),out_channels(out_c),relu(relu),kernel_size(kernel_sz),dialations(dialations),padding(padding),strides(strides){
 
         cudaMalloc((void**)&Weight, kernel_size*kernel_size * in_channels * out_channels * sizeof(float));
         cudaMalloc((void**)&Bias, 1*1*out_channels* sizeof(float));
@@ -97,9 +98,17 @@ public:
         const int mm_tilewidth = 8;
         dim3 blockNum2(batch, (out_channels+mm_tilewidth-1)/mm_tilewidth, (height_B*width_B+mm_tilewidth-1)/mm_tilewidth);
         dim3 threadsPerBlock2(mm_tilewidth, mm_tilewidth);
-        im2col::matmul_alloc_bias<<<blockNum2,threadsPerBlock2>>>(Weight, d_inp_col, Bias, B, batch, out_channels,
-                                                             height_A, width_A,
-                                                             out_channels,(in_channels*kernel_size*kernel_size), (height_B*width_B));
+        if(relu){
+            im2col::matmul_alloc_bias_relu<<<blockNum2,threadsPerBlock2>>>(Weight, d_inp_col, Bias, B, batch, out_channels,
+                    height_A, width_A,
+                    out_channels,(in_channels*kernel_size*kernel_size), (height_B*width_B));
+
+        }else{
+            im2col::matmul_alloc_bias<<<blockNum2,threadsPerBlock2>>>(Weight, d_inp_col, Bias, B, batch, out_channels,
+                    height_A, width_A,
+                    out_channels,(in_channels*kernel_size*kernel_size), (height_B*width_B));
+
+        }
     }
 };
 
@@ -117,11 +126,12 @@ private:
     float *d_U;
     float *d_V;
     float *d_UV;
+    bool relu;
 
 public:
-    conv_wino_4x4_3x3(int in_c, int out_c, float *weight, float *bias, const int kernel_sz, const int dialations,
+    conv_wino_4x4_3x3(int in_c, int out_c, float *weight, float *bias, bool relu, const int kernel_sz, const int dialations,
                       const int padding, const int strides) :
-            in_channels(in_c), out_channels(out_c), kernel_size(kernel_sz),
+            in_channels(in_c), out_channels(out_c), relu(relu), kernel_size(kernel_sz),
             dialations(dialations), padding(padding), strides(strides) {
 
         cudaMalloc((void**)&Bias, 1*1*out_channels* sizeof(float));
@@ -159,8 +169,15 @@ public:
         // =================================================执行
         winograd4::calc_V<<<dim3(batch, tile_num, in_channels), dim3(6, 6)>>>(A, d_V, P, batch, in_channels, height_A, width_A, tile_numrow, tile_numcol);
         winograd4::calc_UV<<<dim3(ceil(out_channels*1.0 / mm_tilewidth),ceil(P*1.0 / mm_tilewidth), 36), dim3(mm_tilewidth, mm_tilewidth)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
-        winograd4::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(6, 6)>>>(d_UV, B, Bias, out_channels, P,
-                height_B, width_B, tile_num, tile_numrow,tile_numcol);
+
+        if(relu){
+            winograd4::calc_AtmA_bias_relu<<<dim3(out_channels, batch, tile_num), dim3(6, 6)>>>(d_UV, B, Bias, out_channels, P,
+                    height_B, width_B, tile_num, tile_numrow,tile_numcol);
+        }else{
+            winograd4::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(6, 6)>>>(d_UV, B, Bias, out_channels, P,
+                    height_B, width_B, tile_num, tile_numrow,tile_numcol);
+        }
+
 
     }
 };
@@ -179,10 +196,11 @@ private:
     float *d_U;
     float *d_V;
     float *d_UV;
+    bool relu;
 
 public:
-    conv_wino_2x2_3x3(int in_c, int out_c, float* weight, float* bias, const int kernel_sz, const int dialations, const int padding, const int strides):
-            in_channels(in_c),out_channels(out_c),kernel_size(kernel_sz),dialations(dialations),padding(padding),strides(strides){
+    conv_wino_2x2_3x3(int in_c, int out_c, float* weight, float* bias, bool relu, const int kernel_sz, const int dialations, const int padding, const int strides):
+            in_channels(in_c),out_channels(out_c),relu(relu),kernel_size(kernel_sz),dialations(dialations),padding(padding),strides(strides){
         cudaMalloc((void**)&Bias, 1*1*out_channels* sizeof(float));
         cudaMemcpy((void*)Bias, (void*)bias, 1*1 * out_channels * sizeof(float), cudaMemcpyHostToDevice);
 
@@ -218,8 +236,11 @@ public:
         // =================================================执行
         winograd2::calc_V<<<dim3(batch, tile_num, in_channels), dim3(4, 4)>>>(A, d_V, P, batch, in_channels, height_A, width_A, tile_numrow, tile_numcol);
         winograd2::calc_UV<<<dim3(ceil(out_channels*1.0/mm_tilewidth), ceil(P*1.0/mm_tilewidth), 16), dim3(mm_tilewidth, mm_tilewidth)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
-        winograd2::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(2, 2)>>>(d_UV, B, Bias, out_channels, P, height_B, width_B, tile_num,tile_numrow, tile_numcol);
-
+        if(relu){
+            winograd2::calc_AtmA_bias_relu<<<dim3(out_channels, batch, tile_num), dim3(2, 2)>>>(d_UV, B, Bias, out_channels, P, height_B, width_B, tile_num,tile_numrow, tile_numcol);
+        }else{
+            winograd2::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(2, 2)>>>(d_UV, B, Bias, out_channels, P, height_B, width_B, tile_num,tile_numrow, tile_numcol);
+        }
     }
 };
 
@@ -473,14 +494,14 @@ public:
     {
         if (conv_type == 1){
 //            conv1_relu =new conv2d_relu{_inplanes, _planes, Weight1,Bias1, 3, 1, 1, 1};//merge
-            conv1 = new conv_im2col{_inplanes, _planes, Weight1,Bias1, 3, 1, 1, 1};//3*3卷积，stride=1
-            conv2 = new conv_im2col{_planes, _planes, Weight2, Bias2,3, 1, 1, 1};//3*3卷积，stride=1
+            conv1 = new conv_im2col{_inplanes, _planes, Weight1,Bias1, true, 3, 1, 1, 1};//3*3卷积，stride=1
+            conv2 = new conv_im2col{_planes, _planes, Weight2, Bias2, false, 3, 1, 1, 1};//3*3卷积，stride=1
         }else if (conv_type == 2){
-            conv1_2x2 = new conv_wino_2x2_3x3{_inplanes, _planes, Weight1,Bias1, 3, 1, 1, 1};
-            conv2_2x2 = new conv_wino_2x2_3x3{_planes, _planes, Weight2, Bias2,3, 1, 1, 1};
+            conv1_2x2 = new conv_wino_2x2_3x3{_inplanes, _planes, Weight1,Bias1,true, 3, 1, 1, 1};
+            conv2_2x2 = new conv_wino_2x2_3x3{_planes, _planes, Weight2, Bias2, false,3, 1, 1, 1};
         }else if (conv_type == 4){
-            conv1_4x4 = new conv_wino_4x4_3x3{_inplanes, _planes, Weight1,Bias1, 3, 1, 1, 1};
-            conv2_4x4 = new conv_wino_4x4_3x3{_planes, _planes, Weight2, Bias2,3, 1, 1, 1};
+            conv1_4x4 = new conv_wino_4x4_3x3{_inplanes, _planes, Weight1,Bias1,true, 3, 1, 1, 1};
+            conv2_4x4 = new conv_wino_4x4_3x3{_planes, _planes, Weight2, Bias2, false, 3, 1, 1, 1};
         }
 
         relu = new Relu{};
@@ -496,21 +517,20 @@ public:
 
         if (conv_type == 1){
             conv1->forward(A, height_A, width_A, channel_A, batch,
-                           output, height, width, channel);
+                           output2, height2, width2, channel2);
         }else if (conv_type == 2){
             conv1_2x2->forward(A, height_A, width_A, channel_A, batch,
-                               output, height, width, channel);
+                               output2, height2, width2, channel2);
         }else if (conv_type == 4){
             conv1_4x4->forward(A, height_A, width_A, channel_A, batch,
-                               output, height, width, channel);
+                               output2, height2, width2, channel2);
         }
-        relu->forward(output, height, width, channel, batch,
-                      output2, height2, width2, channel2);
+//        relu->forward(output, height, width, channel, batch,
+//                      output2, height2, width2, channel2);
 //        conv1_relu->forward(A, height_A, width_A, channel_A, batch,
 //                            output2, height2, width2, channel2);
 
-        cudaFree(output);
-
+//        cudaFree(output);
         if (conv_type == 1){
             conv2->forward(output2, height2, width2, channel2, batch,
                            output,height, width, channel);
@@ -555,16 +575,16 @@ public:
     Bottleneck(int _inplanes, int _planes, float* weight1, float* bias1, float* weight2, float* bias2, float* weight3, float* bias3,int _stride, int conv_type):
             Weight1(weight1),Bias1(bias1),Weight2(weight2),Bias2(bias2),Weight3(weight3),Bias3(bias3),conv_type(conv_type)
     {
-        conv1 = new conv_im2col{_inplanes,_planes,weight1,bias1,3,1,1,_stride};//3*3卷积 stride=_strinde ic=_inplanes oc=width
+        conv1 = new conv_im2col{_inplanes,_planes,weight1,bias1, true, 3,1,1,_stride};//3*3卷积 stride=_strinde ic=_inplanes oc=width
         if (conv_type == 1){
-            conv2 = new conv_im2col{_planes,_planes,weight2,bias2, 3, 1, 1, 1};//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
+            conv2 = new conv_im2col{_planes,_planes,weight2,bias2, false, 3, 1, 1, 1};//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
         }else if (conv_type == 2){
-            conv2_2x2 = new conv_wino_2x2_3x3{_planes,_planes,weight2,bias2, 3, 1, 1, 1};//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
+            conv2_2x2 = new conv_wino_2x2_3x3{_planes,_planes,weight2,bias2,false, 3, 1, 1, 1};//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
         }else if (conv_type == 4){
-            conv2_4x4 = new conv_wino_4x4_3x3{_planes,_planes,weight2,bias2, 3, 1, 1, 1};//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
+            conv2_4x4 = new conv_wino_4x4_3x3{_planes,_planes,weight2,bias2,false, 3, 1, 1, 1};//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
         }
 
-        conv3 = new conv_im2col{_inplanes,_planes,weight3,bias3, 1, 1, 0, _stride};//1*1 ic=width,oc=_planes*expansion
+        conv3 = new conv_im2col{_inplanes,_planes,weight3,bias3,false, 1, 1, 0, _stride};//1*1 ic=width,oc=_planes*expansion
         relu = new Relu;
         add_relu = new Add_Relu;
     };
@@ -577,13 +597,13 @@ public:
         int height2, width2, channel2;
 
         conv1->forward(A, height_A, width_A, channel_A, batch,
-                           output, height, width, channel);
+                           output2, height2, width2, channel2);
 
 //        printf("conv ok %d %d %d %d %f \n", output->batch,output->channels,output->height,output->width, output->data[131]);
-        relu->forward(output, height, width, channel, batch,
-                      output2, height2, width2, channel2);
+//        relu->forward(output, height, width, channel, batch,
+//                      output2, height2, width2, channel2);
 //        printf("relu ok output %d %d %d %d %f \n",output2->batch,output2->channels,output2->height,output2->width, output2->data[131]);
-        cudaFree(output);
+//        cudaFree(output);
 
         if (conv_type == 1){
             conv2->forward(output2, height2, width2, channel2, batch,
@@ -607,7 +627,6 @@ public:
 
         cudaFree(output2);
         cudaFree(output);
-        //     printf("Bottle neck ok %d %d %d %d %f \n", B->batch,B->channels,B->height,B->width, B->data[131]);
 
     };
 

@@ -107,8 +107,8 @@ public:
             im2col::matmul_alloc_bias<<<blockNum2,threadsPerBlock2>>>(Weight, d_inp_col, Bias, B, batch, out_channels,
                     height_A, width_A,
                     out_channels,(in_channels*kernel_size*kernel_size), (height_B*width_B));
-
         }
+        cudaFree(d_inp_col);
     }
 };
 
@@ -177,8 +177,8 @@ public:
             winograd4::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(6, 6)>>>(d_UV, B, Bias, out_channels, P,
                     height_B, width_B, tile_num, tile_numrow,tile_numcol);
         }
-
-
+        cudaFree(d_V);
+        cudaFree(d_UV);
     }
 };
 
@@ -241,6 +241,9 @@ public:
         }else{
             winograd2::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(2, 2)>>>(d_UV, B, Bias, out_channels, P, height_B, width_B, tile_num,tile_numrow, tile_numcol);
         }
+
+        cudaFree(d_V);
+        cudaFree(d_UV);
     }
 };
 
@@ -488,7 +491,6 @@ public:
             conv2_4x4->forward(output2, height2, width2, channel2, batch,
                                output,height, width, channel);
         }
-//        printf("conv2 ok %d %d %d %d %f \n", output->batch,output->channels,output->height,output->width, output->data[131]);
         cudaFree(output2);
 
         add_relu->forward(output,height, width, channel,batch,

@@ -69,7 +69,6 @@ __global__ void relu(const float* A, float* B,const int nthreads)
     }
 }
 
-
 __global__ void add_relu(const float* A,const float* B, float* C,const int nthreads)
 //A-input B-input C-output
 {

@@ -59,14 +59,23 @@ public:
         int height1, width1, channel1;
         int height2, width2, channel2;
 
+        cudaError_t cudaStatus;
+
         float* A;
         float* B;
-        cudaMalloc((void**)&A, batch * width_A * height_A * channel_A * sizeof(float));
-        cudaMemcpy((void*)A, (void*)tensor_A, batch * width_A * height_A * channel_A * sizeof(float), cudaMemcpyHostToDevice);
-
+        cudaStatus = cudaMalloc((void**)&A, batch * width_A * height_A * channel_A * sizeof(float));
+        if (cudaStatus != cudaSuccess) {
+            printf("malloc A failed\n");
+        }
+        cudaStatus = cudaMemcpy((void*)A, (void*)tensor_A, batch * width_A * height_A * channel_A * sizeof(float), cudaMemcpyHostToDevice);
+        if (cudaStatus != cudaSuccess) {
+            printf("memcpy A failed\n");
+        }
 //        printf("======= forward begin =======!\n");
         conv1->forward(A, height_A, width_A, channel_A, batch,
                        tmp_out2, height2, width2, channel2);
+
+        cudaFree(A);
 
         maxpool->forward(tmp_out2, height2, width2, channel2, batch,
                          tmp_out1, height1, width1, channel1);
@@ -123,7 +132,7 @@ public:
         cudaMemcpy((void*)tensor_B, (void*)B, batch * width_B * height_B * channel_B * sizeof(float), cudaMemcpyDeviceToHost);
 
         cudaFree(B);
-        cudaFree(A);
+
     }
 
 };

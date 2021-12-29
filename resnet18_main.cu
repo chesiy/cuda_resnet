@@ -16,7 +16,7 @@
 #define INPUTSHAPE 3 * 224 * 224
 #define OUTPUTSHAPE 1000
 #define TESTNUM 10
-#define ITERNUM 100
+#define ITERNUM 500
 
 float inputArr[TESTNUM][INPUTSHAPE];
 float benchOutArr[TESTNUM][OUTPUTSHAPE];
@@ -119,7 +119,6 @@ int main()
             // 执行Inference
             inference(inputArr[i], inferOut);
             checkOutput(benchOutArr[i], inferOut);
-            printf("iter: %d\n", j);
 
             cudaDeviceSynchronize();
             cudaEventRecord(stop, 0);
@@ -129,7 +128,6 @@ int main()
             sumTime += Onetime;
         }
         checkOutput(benchOutArr[i], inferOut);
-        printf("round: %d\n", i);
     }
     printf("Average Time is: %f\n", (sumTime / TESTNUM / ITERNUM));
 }

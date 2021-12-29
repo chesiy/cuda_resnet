@@ -31,33 +31,33 @@ __global__ void im2col_CHW(float* A, float* out, int kernel_size, int in_channel
     if(cur_mat_row < row_len && cur_mat_col < col_len) out[idx] = tmp;
 }
 
-__global__ void im2col_CHW2(float* A, float* out, int kernel_size, int in_channel, int in_numrow, int in_numcol, 
-    int out_rownum, int out_colnum, int stride, int padding, int batch_size){
-    // blocks: batch_size x in_channel x (K x K), threads: out_rownum x out_colnum
-    // out: batch_size x (in_channel * K * K) x (out_rownum * out_colnum)
-    // use the strange format in order for Memory Coalescing
+// __global__ void im2col_CHW2(float* A, float* out, int kernel_size, int in_channel, int in_numrow, int in_numcol, 
+//     int out_rownum, int out_colnum, int stride, int padding, int batch_size){
+//     // blocks: batch_size x in_channel x (K x K), threads: out_rownum x out_colnum
+//     // out: batch_size x (in_channel * K * K) x (out_rownum * out_colnum)
+//     // use the strange format in order for Memory Coalescing
 
-    // int cur_out_row = blockIdx.y / in_channel, cur_out_col = threadIdx.x, cur_in_channel = blockIdx.y % in_channel;
-    // int cur_kernel_row = blockIdx.z / kernel_size, cur_kernel_col = blockIdx.z % kernel_size;
-    int cur_out_row = threadIdx.x, cur_out_col = threadIdx.y, cur_in_channel = blockIdx.y;
-    int cur_kernel_row = blockIdx.z / kernel_size, cur_kernel_col = blockIdx.z % kernel_size;
+//     // int cur_out_row = blockIdx.y / in_channel, cur_out_col = threadIdx.x, cur_in_channel = blockIdx.y % in_channel;
+//     // int cur_kernel_row = blockIdx.z / kernel_size, cur_kernel_col = blockIdx.z % kernel_size;
+//     int cur_out_row = threadIdx.x, cur_out_col = threadIdx.y, cur_in_channel = blockIdx.y;
+//     int cur_kernel_row = blockIdx.z / kernel_size, cur_kernel_col = blockIdx.z % kernel_size;
 
-    int cur_inp_row = -padding + stride * cur_out_row + cur_kernel_row, 
-        cur_inp_col = -padding + stride * cur_out_col + cur_kernel_col; // place in input HxW image feature
+//     int cur_inp_row = -padding + stride * cur_out_row + cur_kernel_row, 
+//         cur_inp_col = -padding + stride * cur_out_col + cur_kernel_col; // place in input HxW image feature
 
-    int cur_mat_col = cur_out_row * out_colnum + cur_out_col; // place in the row in out mat
-    // place in the column in out mat
-    int cur_mat_row = cur_in_channel * kernel_size * kernel_size + cur_kernel_row * kernel_size + cur_kernel_col;
+//     int cur_mat_col = cur_out_row * out_colnum + cur_out_col; // place in the row in out mat
+//     // place in the column in out mat
+//     int cur_mat_row = cur_in_channel * kernel_size * kernel_size + cur_kernel_row * kernel_size + cur_kernel_col;
 
-    // out[batch_size, cur_mat_row, cur_mat_col] = A[batch_size, threadIdx.x, cur_inp_row+threadIdx.y, cur_inp_col+threadIdx.z]
-    float tmp = 0;
-    if(cur_inp_row >= 0 && cur_inp_row < in_numrow && cur_inp_col >= 0  && cur_inp_col < in_numcol){
-        tmp = A[blockIdx.x*in_channel*in_numrow*in_numcol + cur_in_channel*in_numrow*in_numcol + cur_inp_row*in_numcol + cur_inp_col];
-    }
-    int row_len = in_channel * kernel_size * kernel_size, col_len = out_rownum * out_colnum;
-    int idx = blockIdx.x * row_len * col_len + cur_mat_row * col_len + cur_mat_col;
-    if(cur_mat_row < row_len && cur_mat_col < col_len) out[idx] = tmp;
-}
+//     // out[batch_size, cur_mat_row, cur_mat_col] = A[batch_size, threadIdx.x, cur_inp_row+threadIdx.y, cur_inp_col+threadIdx.z]
+//     float tmp = 0;
+//     if(cur_inp_row >= 0 && cur_inp_row < in_numrow && cur_inp_col >= 0  && cur_inp_col < in_numcol){
+//         tmp = A[blockIdx.x*in_channel*in_numrow*in_numcol + cur_in_channel*in_numrow*in_numcol + cur_inp_row*in_numcol + cur_inp_col];
+//     }
+//     int row_len = in_channel * kernel_size * kernel_size, col_len = out_rownum * out_colnum;
+//     int idx = blockIdx.x * row_len * col_len + cur_mat_row * col_len + cur_mat_col;
+//     if(cur_mat_row < row_len && cur_mat_col < col_len) out[idx] = tmp;
+// }
 
 
 __global__ void matmul_alloc_transpose(float* K_mm, float* Inp_mm, float* out, int batch_size, int out_channel, int out_numrow, 

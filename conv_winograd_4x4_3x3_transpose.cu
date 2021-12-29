@@ -312,43 +312,43 @@ __global__ void calc_UV_2(float* U, float* V, float* out, int out_channels, int 
         out[row*P*36 + col*36 + place_in_36] = p_value;
 }
 
-__global__ void calc_UV_3(float* U, float* V, float* out, int out_channels, int in_channels, int P){
-    // U: in_channels x out_channels x 36, V: in_channels x P x 36, out: out_channels x P x 36
-    __shared__ float Uds[mm_tilewidth][mm_tilewidth][36];
-    __shared__ float Vds[mm_tilewidth][mm_tilewidth][36];
+// __global__ void calc_UV_3(float* U, float* V, float* out, int out_channels, int in_channels, int P){
+//     // U: in_channels x out_channels x 36, V: in_channels x P x 36, out: out_channels x P x 36
+//     __shared__ float Uds[mm_tilewidth][mm_tilewidth][36];
+//     __shared__ float Vds[mm_tilewidth][mm_tilewidth][36];
     
-    int row = blockIdx.y * mm_tilewidth + threadIdx.y;
-    int col = blockIdx.x * mm_tilewidth + threadIdx.x;
-    int place_in_36 = threadIdx.z;
-    float p_value = 0;
+//     int row = blockIdx.y * mm_tilewidth + threadIdx.y;
+//     int col = blockIdx.x * mm_tilewidth + threadIdx.x;
+//     int place_in_36 = threadIdx.z;
+//     float p_value = 0;
 
-    int iter_num = (in_channels+mm_tilewidth-1)/mm_tilewidth;
-    for(int m=0; m<iter_num; m++){
-        int read_col = m*mm_tilewidth+threadIdx.x;
-        // U[row, m*mm_tilewidth+threadIdx.y, place_in_36]
-        if(read_col < in_channels)
-            Uds[threadIdx.y][threadIdx.x][place_in_36] = U[read_col*out_channels*36 + row*36 + place_in_36]; 
-        else
-            Uds[threadIdx.y][threadIdx.x][place_in_36] = 0;
+//     int iter_num = (in_channels+mm_tilewidth-1)/mm_tilewidth;
+//     for(int m=0; m<iter_num; m++){
+//         int read_col = m*mm_tilewidth+threadIdx.x;
+//         // U[row, m*mm_tilewidth+threadIdx.y, place_in_36]
+//         if(read_col < in_channels)
+//             Uds[threadIdx.y][threadIdx.x][place_in_36] = U[read_col*out_channels*36 + row*36 + place_in_36]; 
+//         else
+//             Uds[threadIdx.y][threadIdx.x][place_in_36] = 0;
         
-        int read_row = m*mm_tilewidth+threadIdx.y;
-        if(read_row < in_channels)
-            Vds[threadIdx.y][threadIdx.x][place_in_36] = V[read_row*P*36 + col*36 + place_in_36];
-        else
-            Vds[threadIdx.y][threadIdx.x][place_in_36] = 0;
-        __syncthreads();
+//         int read_row = m*mm_tilewidth+threadIdx.y;
+//         if(read_row < in_channels)
+//             Vds[threadIdx.y][threadIdx.x][place_in_36] = V[read_row*P*36 + col*36 + place_in_36];
+//         else
+//             Vds[threadIdx.y][threadIdx.x][place_in_36] = 0;
+//         __syncthreads();
 
-        for(int k=0; k<mm_tilewidth; k++){
-            p_value += Uds[threadIdx.y][k][place_in_36] * Vds[k][threadIdx.x][place_in_36];
-        }
-        __syncthreads();
-    }
+//         for(int k=0; k<mm_tilewidth; k++){
+//             p_value += Uds[threadIdx.y][k][place_in_36] * Vds[k][threadIdx.x][place_in_36];
+//         }
+//         __syncthreads();
+//     }
 
-    // printf("%d %d %d %f %f %f \n", row, col, place_in_16, p_value, Uds[threadIdx.x][threadIdx.y], Vds[threadIdx.x][threadIdx.y]);
+//     // printf("%d %d %d %f %f %f \n", row, col, place_in_16, p_value, Uds[threadIdx.x][threadIdx.y], Vds[threadIdx.x][threadIdx.y]);
 
-    if(row < out_channels && col < P)
-        out[row*P*36 + col*36 + place_in_36] = p_value;
-}
+//     if(row < out_channels && col < P)
+//         out[row*P*36 + col*36 + place_in_36] = p_value;
+// }
 
 // __global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out_numrow, int out_numcol, int tile_num, int tile_numrow, int tile_numcol){
 //     // each block has 6*6 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks

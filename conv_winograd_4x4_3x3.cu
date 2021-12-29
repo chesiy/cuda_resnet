@@ -2,7 +2,7 @@
 #include <iostream>
 #include <math.h>
 
-# define mm_tilewidth 8 // tile width when do matrix multiply
+# define mm_tilewidth 4 // tile width when do matrix multiply
 
 void serial_matmul(float* A0, float*B0, float*C0, 
     int dim_1, int dim_2, int dim_3){
@@ -414,69 +414,23 @@ int main()
 
 
     // HARD CASE
-    // int in_channels=2, out_channels=4, inp_row=8, inp_col=8;
-    // int P=8, batch_size=2, tile_num=4, out_row=8, out_col=8;
-    // float kernel[72], input[256], output[512]; // kernel: 4*2*3*3, input: 2*2*8*8, output: 2*4*8*8
-    // for(int i=0; i<72; i++) kernel[i] = i;
-    // for(int i=0; i<256; i++) input[i] = i;
-    
-    // float *d_kernel, *d_inp, *d_out;
-    // float *d_V, *d_U, *d_UV;
-
-    // float U[288]; // out_channel(4)*in_channel(2)*36
-
-    // cudaMalloc((void**)&d_kernel, sizeof(float) * 72);
-    // cudaMalloc((void**)&d_inp, sizeof(float) * 256);
-    // cudaMalloc((void**)&d_out, sizeof(float) * 512);
-
-    // cudaMemcpy(d_kernel, kernel, sizeof(float) * 72, cudaMemcpyHostToDevice);
-    // cudaMemcpy(d_inp, input, sizeof(float) * 256, cudaMemcpyHostToDevice);
-
-    // cudaMalloc((void**)&d_V, sizeof(float) * in_channels*P*36);
-    // cudaMalloc((void**)&d_U, sizeof(float) * out_channels*in_channels*36);
-    // cudaMalloc((void**)&d_UV, sizeof(float) * out_channels*P*36);
-
-    // calc_U(kernel, U, in_channels, out_channels); // CPU function, as it can be calculated beforehand
-
-    // cudaMemcpy(d_U, U, sizeof(float) * 288, cudaMemcpyHostToDevice);
-
-    // calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(6, 6)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col);
-    // calc_UV<<<dim3(out_channels/2, P/2, 36), dim3(2, 2)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
-    // calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(6, 6)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num);
-
-    // cudaMemcpy(output, d_out, sizeof(float) * 512, cudaMemcpyDeviceToHost);
-    
-    // for(int i=0; i<2; i++){
-    //     for(int j=0; j<4; j++){
-    //         for(int k=0; k<8; k++){
-    //             for(int l=0; l<8; l++){
-    //                 float now_element = output[i*256 + j*64 + k*8 + l];
-    //                 printf("%f ", now_element);
-    //             }
-    //             printf(" \n");
-    //         }
-    //         printf(" \n");
-    //     }
-    // }
-
-    // not divisor
-    int in_channels=2, out_channels=4, inp_row=7, inp_col=7;
-    int P=8, batch_size=2, tile_num=4, out_row=7, out_col=7;
-    float kernel[72], input[196], output[392]; // kernel: 4*2*3*3, input: 2*2*7*7, output: 2*4*7*7
-    for(int i=0; i<72; i++) kernel[i] = i;
-    for(int i=0; i<196; i++) input[i] = i;
+    int in_channels=16, out_channels=8, inp_row=56, inp_col=56, kernel_size=3;
+    int batch_size=2, out_row=56, out_col=56, tile_numrow=14, tile_numcol=14;
+    int tile_num = 14*14, P = 14*14*2;
+    float kernel[16*8*3*3], input[2*16*56*56], output[2*8*56*56];
+    for(int i=0; i<16*8*3*3; i++) kernel[i] = i;
+    for(int i=0; i<2*16*56*56; i++) input[i] = i;
     
     float *d_kernel, *d_inp, *d_out;
     float *d_V, *d_U, *d_UV;
+    float U[16*8*36];
 
-    float U[288]; // out_channel(4)*in_channel(2)*36
+    cudaMalloc((void**)&d_kernel, sizeof(float) * 16*8*3*3);
+    cudaMalloc((void**)&d_inp, sizeof(float) * 2*16*56*56);
+    cudaMalloc((void**)&d_out, sizeof(float) * 2*8*56*56);
 
-    cudaMalloc((void**)&d_kernel, sizeof(float) * 72);
-    cudaMalloc((void**)&d_inp, sizeof(float) * 196);
-    cudaMalloc((void**)&d_out, sizeof(float) * 392);
-
-    cudaMemcpy(d_kernel, kernel, sizeof(float) * 72, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_inp, input, sizeof(float) * 196, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_kernel, kernel, sizeof(float) * 16*8*3*3, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_inp, input, sizeof(float) * 2*16*56*56, cudaMemcpyHostToDevice);
 
     cudaMalloc((void**)&d_V, sizeof(float) * in_channels*P*36);
     cudaMalloc((void**)&d_U, sizeof(float) * out_channels*in_channels*36);
@@ -484,7 +438,7 @@ int main()
 
     calc_U(kernel, U, in_channels, out_channels); // CPU function, as it can be calculated beforehand
 
-    cudaMemcpy(d_U, U, sizeof(float) * 288, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_U, U, sizeof(float) * 16*8*36, cudaMemcpyHostToDevice);
 
     float Onetime;
     cudaEvent_t start, stop;
@@ -492,11 +446,13 @@ int main()
     cudaEventCreate(&stop);
     cudaEventRecord(start, 0);
 
-    for(int i=0; i<10000;i++){
-        calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(6, 6)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col, 2, 2);
-        calc_UV<<<dim3((out_channels+mm_tilewidth-1)/mm_tilewidth, (P+mm_tilewidth-1)/mm_tilewidth, 36), dim3(mm_tilewidth, mm_tilewidth)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
-        // calc_UV_2<<<dim3(out_channels/2, P/2), dim3(2, 2, 36)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
-        calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(6, 6)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num, 2, 2);
+    for(int i=0; i<100000;i++){
+        calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(6, 6)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col, tile_numrow, tile_numcol);
+        // calc_UV<<<dim3((out_channels+mm_tilewidth-1)/mm_tilewidth, (P+mm_tilewidth-1)/mm_tilewidth, 36), dim3(mm_tilewidth, mm_tilewidth)>>>
+        //         (d_U, d_V, d_UV, out_channels, in_channels, P);
+        calc_UV_2<<<dim3((out_channels+mm_tilewidth-1)/mm_tilewidth, (P+mm_tilewidth-1)/mm_tilewidth), dim3(mm_tilewidth, mm_tilewidth, 36)>>>
+                (d_U, d_V, d_UV, out_channels, in_channels, P);
+        calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(6, 6)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num, tile_numrow, tile_numcol);
     }
 
     cudaDeviceSynchronize();
@@ -520,5 +476,67 @@ int main()
     }
 
     printf("Total Time is: %f\n", Onetime);
+
+    // not divisor
+    // int in_channels=2, out_channels=4, inp_row=7, inp_col=7;
+    // int P=8, batch_size=2, tile_num=4, out_row=7, out_col=7;
+    // float kernel[72], input[196], output[392]; // kernel: 4*2*3*3, input: 2*2*7*7, output: 2*4*7*7
+    // for(int i=0; i<72; i++) kernel[i] = i;
+    // for(int i=0; i<196; i++) input[i] = i;
+    
+    // float *d_kernel, *d_inp, *d_out;
+    // float *d_V, *d_U, *d_UV;
+
+    // float U[288]; // out_channel(4)*in_channel(2)*36
+
+    // cudaMalloc((void**)&d_kernel, sizeof(float) * 72);
+    // cudaMalloc((void**)&d_inp, sizeof(float) * 196);
+    // cudaMalloc((void**)&d_out, sizeof(float) * 392);
+
+    // cudaMemcpy(d_kernel, kernel, sizeof(float) * 72, cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_inp, input, sizeof(float) * 196, cudaMemcpyHostToDevice);
+
+    // cudaMalloc((void**)&d_V, sizeof(float) * in_channels*P*36);
+    // cudaMalloc((void**)&d_U, sizeof(float) * out_channels*in_channels*36);
+    // cudaMalloc((void**)&d_UV, sizeof(float) * out_channels*P*36);
+
+    // calc_U(kernel, U, in_channels, out_channels); // CPU function, as it can be calculated beforehand
+
+    // cudaMemcpy(d_U, U, sizeof(float) * 288, cudaMemcpyHostToDevice);
+
+    // float Onetime;
+    // cudaEvent_t start, stop;
+    // cudaEventCreate(&start);
+    // cudaEventCreate(&stop);
+    // cudaEventRecord(start, 0);
+
+    // for(int i=0; i<10000;i++){
+    //     calc_V<<<dim3(batch_size, tile_num, in_channels), dim3(6, 6)>>>(d_inp, d_V, P, batch_size, in_channels, inp_row, inp_col, 2, 2);
+    //     calc_UV<<<dim3((out_channels+mm_tilewidth-1)/mm_tilewidth, (P+mm_tilewidth-1)/mm_tilewidth, 36), dim3(mm_tilewidth, mm_tilewidth)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+    //     // calc_UV_2<<<dim3(out_channels/2, P/2), dim3(2, 2, 36)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
+    //     calc_AtmA<<<dim3(out_channels, batch_size, tile_num), dim3(6, 6)>>>(d_UV, d_out, out_channels, P, out_row, out_col, tile_num, 2, 2);
+    // }
+
+    // cudaDeviceSynchronize();
+    // cudaEventRecord(stop, 0);
+    // cudaEventSynchronize(stop);
+    // cudaEventElapsedTime(&Onetime, start, stop);
+
+    // cudaMemcpy(output, d_out, sizeof(float) * 392, cudaMemcpyDeviceToHost);
+    
+    // for(int i=0; i<2; i++){
+    //     for(int j=0; j<4; j++){
+    //         for(int k=0; k<7; k++){
+    //             for(int l=0; l<7; l++){
+    //                 float now_element = output[i*196 + j*49 + k*7 + l];
+    //                 printf("%f ", now_element);
+    //             }
+    //             printf(" \n");
+    //         }
+    //         printf(" \n");
+    //     }
+    // }
+
+    // printf("Total Time is: %f\n", Onetime);
     return 0;
 }

@@ -94,6 +94,7 @@ __global__ void matmul_alloc_transpose(float* K_mm, float* Inp_mm, float* out, i
 
         __syncthreads();
 
+        #pragma unroll
         for(int k=0; k<mm_tilewidth; k++){
             p_value += Ks[threadIdx.y][k] * Is[k][threadIdx.x];
         }

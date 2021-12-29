@@ -91,6 +91,7 @@ __global__ void matmul_alloc(float* K_mm, float* Inp_mm, float* out, int batch_s
             Is[threadIdx.x][threadIdx.y] = 0;
         __syncthreads();
 
+        #pragma unroll
         for(int k=0; k<mm_tilewidth; k++){
             p_value += Ks[threadIdx.x][k] * Is[k][threadIdx.y];
         }

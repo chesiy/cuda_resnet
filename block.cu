@@ -408,7 +408,7 @@ public:
 //
 //        simple_matmul<<<blockNum, threadsPerBlock>>>(A, B, Weight, Bias, nthreads, batch, in_dim, out_dim);
 
-        const int mm_tilewidth = 2;
+        const int mm_tilewidth = 4;
         dim3 blockNum(batch, (out_dim+mm_tilewidth-1)/mm_tilewidth, (height_B*width_B+mm_tilewidth-1)/mm_tilewidth);
         dim3 threadsPerBlock(mm_tilewidth, mm_tilewidth);
         matmul_bias<<<blockNum,threadsPerBlock>>>(Weight, A, Bias, B, batch, out_dim,
@@ -496,8 +496,6 @@ public:
                           B, height_B, width_B, channel_B);
 
         cudaFree(output);
-//        printf("add ok %d %d %d %d %f \n",output2->batch,output2->channels,output2->height,output2->width, output2->data[131]);
-        //       printf("Basic block ok: %d %d %d %d\n",B->batch,B->channels,B->height,B->width);
     };
 };
 
@@ -574,7 +572,6 @@ public:
 
         cudaFree(output2);
         cudaFree(output);
-
     };
 
 };

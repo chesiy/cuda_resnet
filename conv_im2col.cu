@@ -106,7 +106,7 @@ namespace im2col{
             else
                 Is[threadIdx.x][threadIdx.y] = 0;
             __syncthreads();
-
+#pragma unroll
             for(int k=0; k<mm_tilewidth; k++){
                 p_value += Ks[threadIdx.x][k] * Is[k][threadIdx.y];
             }
@@ -151,7 +151,7 @@ namespace im2col{
             else
                 Is[threadIdx.x][threadIdx.y] = 0;
             __syncthreads();
-
+#pragma unroll
             for(int k=0; k<mm_tilewidth; k++){
                 p_value += Ks[threadIdx.x][k] * Is[k][threadIdx.y];
             }

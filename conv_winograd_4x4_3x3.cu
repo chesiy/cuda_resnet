@@ -179,7 +179,7 @@ namespace winograd4{
             else
                 Vds[threadIdx.x][threadIdx.y] = 0;
             __syncthreads();
-
+#pragma unroll
             for(int k=0; k<mm_tilewidth; k++){
                 p_value += Uds[threadIdx.x][k] * Vds[k][threadIdx.y];
             }

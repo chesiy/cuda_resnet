@@ -54,7 +54,6 @@ namespace winograd2{
         }
     }
 
-
     __global__ void calc_V(float* inp, float* V, int P, int batch_size, int in_channels, int in_numrow, int in_numcol, int tile_numrow, int tile_numcol){
         // each block has 16 threads, and in total P*in_channels=(batch_size*tile_num*in_channels) blocks
         __shared__ float inp_shared[4][4];
@@ -148,7 +147,7 @@ namespace winograd2{
 
             // printf("%d %d\n", read_col, read_row);
             __syncthreads();
-
+#pragma unroll
             for(int k=0; k<mm_tilewidth; k++){
                 p_value += Uds[threadIdx.x][k] * Vds[k][threadIdx.y];
             }

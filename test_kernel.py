@@ -8,26 +8,30 @@ import torch.nn as nn
 # inp_row = 4
 # inp_col = 4
 
-# batch_size = 2
-# in_channels = 2
-# out_channels = 4
-# kernel_size = 3
-# inp_row = 7
-# inp_col = 7
-
 batch_size = 2
 in_channels = 2
 out_channels = 4
 kernel_size = 3
-inp_row = 8
-inp_col = 8
-stride = 2
+inp_row = 7
+inp_col = 7
+stride=1
+
+# batch_size = 2
+# in_channels = 2
+# out_channels = 4
+# kernel_size = 3
+# inp_row = 8
+# inp_col = 8
+# stride = 2
 
 conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding=1, stride=stride, bias=True)
 
 kernel = torch.zeros((out_channels*in_channels*kernel_size*kernel_size))
 for i in range(len(kernel)):
     kernel[i] = i
+
+kernel = kernel.reshape(in_channels*kernel_size*kernel_size, out_channels)
+kernel = torch.transpose(kernel, 0, 1)
 
 kernel = kernel.reshape(out_channels, in_channels, kernel_size, kernel_size)
 

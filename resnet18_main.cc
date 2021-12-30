@@ -7,7 +7,6 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-//#include "resnet.cu"
 #include <map>
 #include <json/json.h>
 #include <chrono>
@@ -16,7 +15,7 @@
 #define INPUTSHAPE 3 * 224 * 224
 #define OUTPUTSHAPE 1000
 #define TESTNUM 10
-#define ITERNUM 500
+#define ITERNUM 200
 
 float inputArr[TESTNUM][INPUTSHAPE];
 float benchOutArr[TESTNUM][OUTPUTSHAPE];
@@ -122,6 +121,7 @@ int main()
             cudaEventRecord(start, 0);
             // 执行Inference
             inference(inputArr[i], inferOut);
+            printf("i:%d j:%d\n",i,j);
 
             cudaDeviceSynchronize();
             cudaEventRecord(stop, 0);

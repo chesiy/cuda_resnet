@@ -3,7 +3,7 @@
 #include <math.h>
 
 namespace im2col{
-    const int mm_tilewidth = 8; // tile width when do matrix multiply
+    const int mm_tilewidth = 4; // tile width when do matrix multiply
     // when input is CHW format
     __global__ void im2col_CHW(float* A, float* out, int kernel_size, int in_channel, int in_numrow, int in_numcol,
                                int out_rownum, int out_colnum, int stride, int padding, int batch_size){

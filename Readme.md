@@ -33,6 +33,7 @@ resnet_extern.cu: resnet
 
 resnet18_main.cc: main
 
+编译并运行
 ```
 make
 ./hello

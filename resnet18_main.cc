@@ -84,7 +84,7 @@ void checkOutput(float *out1, float *out2)
     if (maxDiff > 1e-5)
     {
         printf("Output dismatch. MaxDiff is %.7f\n", maxDiff);
-//        exit(-1);
+        exit(-1);
     }
 }
 
@@ -122,7 +122,6 @@ int main()
             cudaEventRecord(start, 0);
             // 执行Inference
             inference(inputArr[i], inferOut);
-            checkOutput(benchOutArr[i], inferOut);
 
             cudaDeviceSynchronize();
             cudaEventRecord(stop, 0);

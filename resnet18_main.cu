@@ -16,7 +16,7 @@
 #define INPUTSHAPE 3 * 224 * 224
 #define OUTPUTSHAPE 1000
 #define TESTNUM 10
-#define ITERNUM 500
+#define ITERNUM 5
 
 float inputArr[TESTNUM][INPUTSHAPE];
 float benchOutArr[TESTNUM][OUTPUTSHAPE];

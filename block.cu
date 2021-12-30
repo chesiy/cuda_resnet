@@ -8,6 +8,7 @@
 #include "conv_winograd_4x4_3x3.cu"
 #include "conv_winograd_gpu.cu"
 #include "conv_im2col.cu"
+#include "conv_im2col_transpose.cu"
 
 using namespace std;
 
@@ -51,6 +52,74 @@ public:
 
         ConvolutionForward<<<blockNum, threadsPerBlock>>>(A, B, Weight, Bias, nthreads,batch, height_A, width_A, in_channels ,height_B, width_B, out_channels,
                                                           kernel_size,kernel_size,strides,strides,padding,padding);
+    }
+};
+
+
+class conv_im2col_transpose{
+private:
+    int in_channels;
+    int out_channels;
+    int kernel_size;
+    int dialations;
+    int padding;
+    int strides;
+    float* Weight;
+    float* Bias;
+    bool relu;
+
+public:
+    conv_im2col_transpose(int in_c, int out_c, float* weight, float* bias, bool relu, const int kernel_sz, const int dialations, const int padding, const int strides):
+            in_channels(in_c),out_channels(out_c),relu(relu),kernel_size(kernel_sz),dialations(dialations),padding(padding),strides(strides){
+
+        float* weight_trans = (float*)malloc(out_channels*in_channels*kernel_size*kernel_size * sizeof(float));
+        //transpose Weight
+        //out*in*kz*kz -> in*kz*kz*out
+        for(int i=0;i<out_channels;i++){
+            for(int j=0;j<in_channels*kernel_size*kernel_size;j++){
+                weight_trans[j*out_channels+i] =
+                        weight[i*in_channels*kernel_size*kernel_size+j];
+            }
+        }
+        cudaMalloc((void**)&Weight, kernel_size*kernel_size * in_channels * out_channels * sizeof(float));
+        cudaMalloc((void**)&Bias, 1*1*out_channels* sizeof(float));
+
+        cudaMemcpy((void*)Weight, (void*)weight_trans, kernel_size*kernel_size * in_channels * out_channels * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy((void*)Bias, (void*)bias, 1*1 * out_channels * sizeof(float), cudaMemcpyHostToDevice);
+
+        free(weight_trans);
+    }
+    //input->tensor_A; output->tensor_B
+    void forward(float* A, int height_A, int width_A, int channel_A, int batch,
+                 float*& B, int& height_B, int &width_B, int &channel_B){
+
+        height_B = (height_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
+        width_B = (width_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
+        channel_B = out_channels;
+
+        float *d_inp_col;
+        cudaMalloc((void**)&d_inp_col, sizeof(float) * batch*(in_channels*kernel_size*kernel_size)*(height_B*width_B));
+        cudaMalloc((void**)&B, batch * width_B * height_B * out_channels * sizeof(float));
+
+        dim3 blockNum(batch, height_B*in_channels, kernel_size*kernel_size);
+        dim3 threadsPerBlock(width_B);
+        im2col_trans::im2col_CHW<<<blockNum, threadsPerBlock>>>(A,d_inp_col, kernel_size, in_channels,
+                height_A, width_A, height_B, width_B, strides, padding, batch);
+
+        const int mm_tilewidth = 8;
+        dim3 blockNum2(batch, (out_channels+mm_tilewidth-1)/mm_tilewidth, (height_B*width_B+mm_tilewidth-1)/mm_tilewidth);
+        dim3 threadsPerBlock2(mm_tilewidth, mm_tilewidth);
+        if(relu){
+            im2col_trans::matmul_alloc_transpose_bias_relu<<<blockNum2,threadsPerBlock2>>>(Weight, d_inp_col, Bias, B, batch, out_channels,
+                    height_A, width_A,
+                    out_channels,(in_channels*kernel_size*kernel_size), (height_B*width_B));
+
+        }else{
+            im2col_trans::matmul_alloc_transpose_bias<<<blockNum2,threadsPerBlock2>>>(Weight, d_inp_col, Bias, B, batch, out_channels,
+                    height_A, width_A,
+                    out_channels,(in_channels*kernel_size*kernel_size), (height_B*width_B));
+        }
+        cudaFree(d_inp_col);
     }
 };
 

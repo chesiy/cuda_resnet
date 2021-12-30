@@ -10,7 +10,7 @@ conda activate onnx_env
 python get_onnx_weight.py
 ```
 
-2、通过Jsoncpp加载参数至模型中，其中/json以及/json_lib即为jsoncpp所需文件
+2、通过[Jsoncpp](https://github.com/open-source-parsers/jsoncpp)加载参数至模型中，其中/json以及/json_lib即为jsoncpp所需文件
 
 Baseline
 ------------------------------
@@ -38,8 +38,20 @@ make
 ./hello
 ```
 
-输入输出文件
+输入输出文件及模型
 ----------------------------
 resnet18Input.txt
 
 resnet18Output.txt
+
+resnet18.onnx
+
+实验结果
+---------------------------
+|    Methods    |    time(ms)    |
+|:------:|:-----:|
+|Baseline (pytorch)|2.6|
+|CPU (pytorch)|   |
+|winograd|   |
+|im2col|     |
+wingrad+im2col|   |

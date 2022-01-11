@@ -34,13 +34,9 @@ void readFileJson(map<string,float*> &parameters)
         Json::Value::Members members = root.getMemberNames();
         for(Json::Value::Members::iterator it = members.begin(); it != members.end(); it++){
             float* para_list = (float*)malloc(sizeof(float) * root[*it].size());
-            for (unsigned int i = 0; i < root[*it].size(); i++)
-            {
-//                cout<<root[*it][i]<<'\n';
+            for (unsigned int i = 0; i < root[*it].size(); i++){
                 para_list[i] = float(root[*it][i].asDouble());
-//                printf("%f ",para_list[i]);
             }
-//            printf("\n");
             parameters.insert(pair<string, float*>(*it, para_list));
         }
     }

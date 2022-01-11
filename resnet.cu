@@ -1,4 +1,5 @@
 #include "cuda_runtime.h"
+#include <cuda.h>
 #include "device_launch_parameters.h"
 #include "block.cu"
 #include "string.h"
@@ -25,9 +26,11 @@ void print_tensor(float* Ts, int batch, int channels, int height, int width){
     }
 }
 
+
 class Resnet18{
 private:
-    conv2d *conv1;
+//    conv_im2col *conv1;
+    conv_im2col_transpose *conv1;
     Relu *relu;
     maxpooling2d *maxpool;
     GlobalAvgpooling *avgpool;
@@ -38,7 +41,7 @@ private:
 
 public:
     Resnet18(map<string, float*> param):Parameters(param){
-        conv1 = new conv2d{3,64,Parameters["193"],Parameters["194"],7,1,3,2};
+        conv1 = new conv_im2col_transpose{3,64,Parameters["193"],Parameters["194"],true,7,1,3,2};
         relu = new Relu{};
         maxpool = new maxpooling2d{3,1,2};
         layer1 = new BasicBlock{64,64,Parameters["196"],Parameters["197"],Parameters["199"],Parameters["200"],4};
@@ -59,25 +62,24 @@ public:
         int height1, width1, channel1;
         int height2, width2, channel2;
 
+        cudaError_t cudaStatus;
+
         float* A;
         float* B;
-        cudaMalloc((void**)&A, batch * width_A * height_A * channel_A * sizeof(float));
-        cudaMemcpy((void*)A, (void*)tensor_A, batch * width_A * height_A * channel_A * sizeof(float), cudaMemcpyHostToDevice);
-
+        cudaStatus = cudaMalloc((void**)&A, batch * width_A * height_A * channel_A * sizeof(float));
+        if (cudaStatus != cudaSuccess) {
+            printf("malloc A failed\n");
+        }
+        cudaStatus = cudaMemcpy((void*)A, (void*)tensor_A, batch * width_A * height_A * channel_A * sizeof(float), cudaMemcpyHostToDevice);
+        if (cudaStatus != cudaSuccess) {
+            printf("memcpy A failed\n");
+        }
 //        printf("======= forward begin =======!\n");
         conv1->forward(A, height_A, width_A, channel_A, batch,
-                       tmp_out1, height1, width1, channel1);
-//        printf("after conv1 %d %d %d %d %f %f \n",
-//               batch, channel1,height1,width1,
-//               tmp_out1[0], tmp_out1[10]);
+                       tmp_out2, height2, width2, channel2);
 
-        relu->forward(tmp_out1, height1, width1, channel1, batch,
-                      tmp_out2, height2, width2, channel2);
-//        printf("after relu %d %d %d %d %f %f \n",
-//               batch, channel2, height2, width2,
-//               tmp_out2[0], tmp_out2[40]);
+        cudaFree(A);
 
-        cudaFree(tmp_out1);
         maxpool->forward(tmp_out2, height2, width2, channel2, batch,
                          tmp_out1, height1, width1, channel1);
 //        printf("after maxpooling %d %d %d %d %f %f \n",
@@ -126,12 +128,13 @@ public:
         cudaFree(tmp_out1);
         gemm->forward(tmp_out2, height2, width2, channel2, batch,
                       B, height_B, width_B, channel_B);
-//        printf("after gemm: %f %f %d %d %d %d\n",tmp_out1->data[0], tmp_out1->data[132],
-//               tmp_out1->batch, tmp_out1->channels,tmp_out1->height,tmp_out1->width);
+        cudaFree(tmp_out2);
 
 //        printf("after gemm: %d %d %d %d \n", height_B, width_B, channel_B, batch);
-        tensor_B = (float*)malloc( sizeof(float)*height_B*width_B*channel_B*batch );
+//        tensor_B = (float*)malloc( sizeof(float)*height_B*width_B*channel_B*batch );
         cudaMemcpy((void*)tensor_B, (void*)B, batch * width_B * height_B * channel_B * sizeof(float), cudaMemcpyDeviceToHost);
+
+        cudaFree(B);
 
     }
 

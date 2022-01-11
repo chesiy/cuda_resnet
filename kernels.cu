@@ -66,10 +66,8 @@ __global__ void relu(const float* A, float* B,const int nthreads)
         }else{
             B[index]=0;
         }
-//        printf("%f ",B[index]);
     }
 }
-
 
 __global__ void add_relu(const float* A,const float* B, float* C,const int nthreads)
 //A-input B-input C-output
@@ -130,6 +128,7 @@ nthreads- the number of top_data
         }
 
         top_data[index]=tmp/pool_size ;
+        // printf("%d %f\n", index, tmp/pool_size);
 
     }
 }
@@ -235,68 +234,53 @@ __global__ void simple_matmul(const float* A, float* B, const float* Weight, con
 }
 
 
-__global__ void conv_relu(float* A_b, float*C_b, float*kernel, float* bias, int nthreads,
-                          int batch_size, int in_numrow, int in_numcol, int in_channels,
-                          int out_numrow, int out_numcol, int out_channels,
-                          int kernel_numrow, int kernel_numcol,
-                          int stride_row=1, int stride_col=1,int row_padding=0, int col_padding=0)
-{
-    CUDA_KERNEL_LOOP(index, nthreads){
-//        printf("conv-relu\n");
-//        printf("kernel... %f %f", A_b[10], A_b[20]);
-        int cur_batch = index / out_channels / out_numrow / out_numcol;
-        int cur_c = (index / out_numrow / out_numcol) % out_channels;
-        int cur_row = (index / out_numcol) % out_numrow;
-        int cur_col = index % out_numcol;
+__global__ void matmul_bias(float* K_mm, float* Inp_mm, float* bias, float* out, int batch_size, int out_channel, int out_numrow,
+                                  int out_numcol, int l1, int l2, int l3){
+    // K_mm: l1 x l2, inp_mm: l3 x l2,
+    // l1=out_channel, l2=in_channel x kernel_size x kernel_size, l3=out_numrow x out_numcol
+    // block: batch x floor(l3 / mm_tile_width) x floor(l1 / mm_tile_width), thread: mm_tile_width x mm_tile_width
+    const int mm_tilewidth = 4;
 
-        // printf("%d ", cur_batch);
+    __shared__ float Ks[mm_tilewidth][mm_tilewidth];
+    __shared__ float Is[mm_tilewidth][mm_tilewidth];
 
-        int start_row = cur_row * stride_row - row_padding; // start row in input
-        int end_row = start_row + kernel_numrow;
+    int row = blockIdx.y * mm_tilewidth + threadIdx.y;
+    int col = blockIdx.z * mm_tilewidth + threadIdx.x;
 
-        int start_col = cur_col * stride_col - col_padding; // start column in input
-        int end_col = start_col + kernel_numcol; // end_col is not included
+    float p_value = 0;
 
-        // deal with padding, only use zero-padding
-        int ker_start_row = 0, ker_end_row = kernel_numrow;
-        int ker_start_col = 0, ker_end_col = kernel_numcol;
-        if(start_row < 0){
-            ker_start_row = - start_row;
-            start_row = 0;
-        }
-        if(start_col < 0){
-            ker_start_col = - start_col;
-            start_col = 0;
-        }
-
-        if(end_row > in_numrow){
-            ker_end_row = ker_end_row - end_row + in_numrow;
-            end_row = in_numrow;
-        }
-        if(end_col > in_numcol){
-            ker_end_col = ker_end_col - end_col + in_numcol;
-            end_col = in_numcol;
-        }
-
-        float tmp = 0;
-        for(int cur_inp_c=0; cur_inp_c<in_channels; cur_inp_c++){ // for each input channel
-            float* A_slice = A_b + cur_batch*in_channels*in_numrow*in_numcol + cur_inp_c*in_numrow*in_numcol;
-            float* kernel_slice = kernel + cur_c*in_channels*kernel_numrow*kernel_numcol + cur_inp_c*kernel_numrow*kernel_numcol;
-            for(int i=0; i<ker_end_row-ker_start_row; i++){
-                for(int j=0; j<ker_end_col-ker_start_col; j++){
-                    tmp += A_slice[(start_row+i)*in_numcol + (start_col+j)] * kernel_slice[(ker_start_row+i)*kernel_numcol + (ker_start_col+j)];
-                }
-            }
-        }
-        tmp += bias[cur_c];
-        if(tmp>0){
-            C_b[cur_batch*out_channels*out_numrow*out_numcol + cur_c*out_numrow*out_numcol + cur_row*out_numcol + cur_col] = tmp; // C_b[cur_batch, cur_c, cur_row, cur_col]
+    int iter_num = (l2+mm_tilewidth-1)/mm_tilewidth;
+    for(int m=0; m<iter_num; m++){
+        int read_col = m*mm_tilewidth+threadIdx.x;
+        // U[row, m*mm_tilewidth+threadIdx.y]
+        if(read_col < l2){
+            Ks[threadIdx.y][threadIdx.x] = K_mm[row*l2 + read_col];
         }
         else{
-            C_b[cur_batch*out_channels*out_numrow*out_numcol + cur_c*out_numrow*out_numcol + cur_row*out_numcol + cur_col] = 0;
+            Ks[threadIdx.y][threadIdx.x] = 0;
         }
-//        printf("%f\n",C_b[cur_batch*out_channels*out_numrow*out_numcol + cur_c*out_numrow*out_numcol + cur_row*out_numcol + cur_col]);
 
+        int read_row = m*mm_tilewidth+threadIdx.y;
+        if(read_row < l2){
+            Is[threadIdx.y][threadIdx.x] = Inp_mm[blockIdx.x*l2*l3 + col*l2 + read_row];
+        }
+        else{
+            Is[threadIdx.y][threadIdx.x] = 0;
+        }
+
+        __syncthreads();
+# pragma unroll
+        for(int k=0; k<mm_tilewidth; k++){
+            p_value += Ks[threadIdx.y][k] * Is[k][threadIdx.x];
+        }
+        __syncthreads();
+    }
+
+    // out[batch_size, cur_out_channel, cur_out_row, cur_out_col]
+    if(row < l1 && col < l3){
+        // int cur_out_channel = row;
+        // int cur_out_row = col / out_numrow, cur_out_col = col % out_numrow;
+        int idx = blockIdx.x * l1 * l3 + row * l3 + col;
+        out[idx] = p_value+bias[row];
     }
 }
-

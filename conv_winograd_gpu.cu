@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <iostream>
 #include <math.h>
+#include "cuda_runtime.h"
+#include <cuda.h>
 
 namespace winograd2{
 
@@ -53,7 +55,6 @@ namespace winograd2{
             }
         }
     }
-
 
     __global__ void calc_V(float* inp, float* V, int P, int batch_size, int in_channels, int in_numrow, int in_numcol, int tile_numrow, int tile_numcol){
         // each block has 16 threads, and in total P*in_channels=(batch_size*tile_num*in_channels) blocks
@@ -148,7 +149,7 @@ namespace winograd2{
 
             // printf("%d %d\n", read_col, read_row);
             __syncthreads();
-
+#pragma unroll
             for(int k=0; k<mm_tilewidth; k++){
                 p_value += Uds[threadIdx.x][k] * Vds[k][threadIdx.y];
             }
@@ -159,7 +160,6 @@ namespace winograd2{
         if(row < out_channels && col < P)
             out[row*P*16 + col*16 + place_in_16] = p_value;
     }
-
 
     __global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out_numrow, int out_numcol, int tile_num, int tile_numrow, int tile_numcol){
         // each block has 4 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
@@ -250,6 +250,52 @@ namespace winograd2{
         if(now_row < out_numrow && now_col < out_numcol){
             out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol +
                 now_row*out_numcol + now_col] = tmp + bias[cur_channel];
+        }
+        // __syncthreads();
+    }
+
+    __global__ void calc_AtmA_bias_relu(float* M, float* out, float* bias, int out_channels, int P, int out_numrow, int out_numcol, int tile_num, int tile_numrow, int tile_numcol){
+        // each block has 4 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
+        // M: out_channels x P * 16
+        int cur_channel = blockIdx.x, cur_batch = blockIdx.y;
+        int cur_tilerow = blockIdx.z / tile_numcol, cur_tilecol = blockIdx.z % tile_numrow;
+
+        __shared__ float m[4][4];
+        __shared__ float Atm[2][4];
+        m[threadIdx.x][threadIdx.y] = M[cur_channel*P*16 + (cur_batch*tile_num+blockIdx.z)*16 + threadIdx.x*4 + threadIdx.y];
+        m[threadIdx.x][threadIdx.y+2] = M[cur_channel*P*16 + (cur_batch*tile_num+blockIdx.z)*16 + threadIdx.x*4 + threadIdx.y + 2];
+        m[threadIdx.x+2][threadIdx.y] = M[cur_channel*P*16 + (cur_batch*tile_num+blockIdx.z)*16 + (threadIdx.x+2)*4 + threadIdx.y];
+        m[threadIdx.x+2][threadIdx.y+2] = M[cur_channel*P*16 + (cur_batch*tile_num+blockIdx.z)*16 + (threadIdx.x+2)*4 + threadIdx.y + 2];
+        __syncthreads();
+
+        switch(threadIdx.x){
+            case 0:
+                Atm[threadIdx.x][threadIdx.y] = m[0][threadIdx.y] + m[1][threadIdx.y] + m[2][threadIdx.y];
+                Atm[threadIdx.x][threadIdx.y+2] = m[0][threadIdx.y+2] + m[1][threadIdx.y+2] + m[2][threadIdx.y+2];
+                break;
+            case 1:
+                Atm[threadIdx.x][threadIdx.y] = m[1][threadIdx.y] - m[2][threadIdx.y] - m[3][threadIdx.y];
+                Atm[threadIdx.x][threadIdx.y+2] = m[1][threadIdx.y+2] - m[2][threadIdx.y+2] - m[3][threadIdx.y+2];
+                break;
+        }
+        __syncthreads();
+
+        float tmp = 0;
+        switch(threadIdx.y){
+            case 0:
+                tmp = Atm[threadIdx.x][0] + Atm[threadIdx.x][1] + Atm[threadIdx.x][2];
+                break;
+            case 1:
+                tmp = Atm[threadIdx.x][1] - Atm[threadIdx.x][2] - Atm[threadIdx.x][3];
+                break;
+        }
+
+        // out[cur_batch, cur_channel, cur_tilerow*2+threadIdx.x, cur_tilecol*2+threadIdx.y]
+        int now_row = 2*cur_tilerow+threadIdx.x;
+        int now_col = 2*cur_tilecol+threadIdx.y;
+        if(now_row < out_numrow && now_col < out_numcol){
+            out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol +
+                now_row*out_numcol + now_col] = ((tmp + bias[cur_channel])>0)?(tmp + bias[cur_channel]):0;
         }
         // __syncthreads();
     }

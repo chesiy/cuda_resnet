@@ -5,7 +5,9 @@ Group20 Resnet18
 解析onnx模型并获取参数
 -----------------------------
 1、通过get_onnx_weight.py获得weight.json
+
 ```
+cd /home/group20/cuda_onnx_python/
 conda activate onnx_env
 python get_onnx_weight.py
 ```
@@ -23,7 +25,9 @@ python try_resnet_format.py
 
 CUDA搭建与实现
 ------------------------------
-kernels.cu: MaxPooing AvgPooling Relu Add MaxMul
+kernels.cu: MaxPooing AvgPooling Relu Add
+
+GEMM: matmul.cu
 
 winograd: conv_winograd_4x4_3x3.cu conv_winograd_gpu.cu
 
@@ -34,6 +38,7 @@ resnet_extern.cu: resnet
 resnet18_main.cc: main
 
 ```
+cd /home/group20/resnet_cuda/tmp/final_version/
 make
 ./hello
 ```
@@ -46,12 +51,11 @@ resnet18Output.txt
 
 resnet18.onnx
 
+weight.json
+
 实验结果
 ---------------------------
-|    Methods    |    time(ms)    |
-|:------:|:-----:|
-|Baseline (pytorch)|2.6|
-|CPU (pytorch)|   |
-|winograd|   |
-|im2col|     |
-wingrad+im2col|   |
+|      Methods       | time(ms) |
+| :----------------: | :------: |
+| Baseline (pytorch) |   2.67    |
+|     our model      |   2.26    |

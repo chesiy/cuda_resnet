@@ -1,10 +1,15 @@
 #include <stdio.h>
 #include <iostream>
 #include <math.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <stdlib.h>
+#include <string.h>
+#include <chrono>
 
 namespace winograd4{
 
-    const int mm_tilewidth=8; // tile width when do matrix multiply
+    const int mm_tilewidth=4; // tile width when do matrix multiply
 
     void serial_matmul(float* A0, float*B0, float*C0,
                        int dim_1, int dim_2, int dim_3){
@@ -73,94 +78,92 @@ namespace winograd4{
     }
 
 
-    __global__ void calc_V(float* inp, float* V, int P, int batch_size, int in_channels, int in_numrow, int in_numcol, int tile_numrow, int tile_numcol){
+    __global__ void calc_V(float* inp, float* V, int P, int batch_size, int in_channels, int in_numrow, int in_numcol, 
+            int tile_numrow, int tile_numcol, int tile_num, int inp_size, int inp_enum, int P36){
         // each block has 36 threads, and in total P*in_channels=(batch_size*tile_num*in_channels) blocks
         __shared__ float inp_shared[6][6];
         __shared__ float Btd_shared[6][6];
 
         // TODO: OPTIMIZE THIS
         int cur_batch = blockIdx.x, cur_channel = blockIdx.z;
-        int cur_row = blockIdx.y / tile_numcol * 4 -1 + threadIdx.x; // tile_row * 4 - 1 + threadIdx.x
-        int cur_col = blockIdx.y % tile_numcol * 4 -1 + threadIdx.y; // tile_col * 4 - 1 + threadIdx.y
+        int cur_row = blockIdx.y / tile_numcol * 4 -1 + threadIdx.y; // tile_row * 4 - 1 + threadIdx.y
+        int cur_col = blockIdx.y % tile_numcol * 4 -1 + threadIdx.x; // tile_col * 4 - 1 + threadIdx.x
 
-        if(cur_row >= 0 && cur_row < in_numrow && cur_col >= 0 && cur_col < in_numcol)
-            inp_shared[threadIdx.x][threadIdx.y] =
-                    inp[cur_batch*in_channels*in_numrow*in_numcol + cur_channel*in_numrow*in_numcol + cur_row*in_numcol + cur_col];
+        if(cur_row >= 0 && cur_row < in_numrow && cur_col >= 0 && cur_col < in_numcol) 
+            inp_shared[threadIdx.y][threadIdx.x] = 
+                inp[cur_batch*inp_enum + cur_channel*inp_size + cur_row*in_numcol + cur_col];
         else
-            inp_shared[threadIdx.x][threadIdx.y] = 0;
+            inp_shared[threadIdx.y][threadIdx.x] = 0;
 
         __syncthreads();
 
         // Btd
-        switch(threadIdx.x){
+        switch(threadIdx.y){
             case 0:
-                Btd_shared[threadIdx.x][threadIdx.y] = 4*inp_shared[0][threadIdx.y] - 5*inp_shared[2][threadIdx.y] + inp_shared[4][threadIdx.y];
+                Btd_shared[threadIdx.y][threadIdx.x] = 4*inp_shared[0][threadIdx.x] - 5*inp_shared[2][threadIdx.x] + inp_shared[4][threadIdx.x];
                 break;
             case 1:
-                Btd_shared[threadIdx.x][threadIdx.y] = -4*inp_shared[1][threadIdx.y] - 4*inp_shared[2][threadIdx.y] +
-                                                       inp_shared[3][threadIdx.y] + inp_shared[4][threadIdx.y];
+                Btd_shared[threadIdx.y][threadIdx.x] = -4*inp_shared[1][threadIdx.x] - 4*inp_shared[2][threadIdx.x] + 
+                                                                inp_shared[3][threadIdx.x] + inp_shared[4][threadIdx.x];
                 break;
             case 2:
-                Btd_shared[threadIdx.x][threadIdx.y] = 4*inp_shared[1][threadIdx.y] - 4*inp_shared[2][threadIdx.y] -
-                                                       inp_shared[3][threadIdx.y] + inp_shared[4][threadIdx.y];
+                Btd_shared[threadIdx.y][threadIdx.x] = 4*inp_shared[1][threadIdx.x] - 4*inp_shared[2][threadIdx.x] - 
+                                                            inp_shared[3][threadIdx.x] + inp_shared[4][threadIdx.x];
                 break;
             case 3:
-                Btd_shared[threadIdx.x][threadIdx.y] = -2*inp_shared[1][threadIdx.y] - inp_shared[2][threadIdx.y] +
-                                                       2*inp_shared[3][threadIdx.y] + inp_shared[4][threadIdx.y];
+                Btd_shared[threadIdx.y][threadIdx.x] = -2*inp_shared[1][threadIdx.x] - inp_shared[2][threadIdx.x] +
+                                                            2*inp_shared[3][threadIdx.x] + inp_shared[4][threadIdx.x];
                 break;
             case 4:
-                Btd_shared[threadIdx.x][threadIdx.y] = 2*inp_shared[1][threadIdx.y] - inp_shared[2][threadIdx.y] -
-                                                       2*inp_shared[3][threadIdx.y] + inp_shared[4][threadIdx.y];
+                Btd_shared[threadIdx.y][threadIdx.x] = 2*inp_shared[1][threadIdx.x] - inp_shared[2][threadIdx.x] -
+                                                            2*inp_shared[3][threadIdx.x] + inp_shared[4][threadIdx.x];
                 break;
             case 5:
-                Btd_shared[threadIdx.x][threadIdx.y] = 4*inp_shared[1][threadIdx.y] - 5*inp_shared[3][threadIdx.y] + inp_shared[5][threadIdx.y];
+                Btd_shared[threadIdx.y][threadIdx.x] = 4*inp_shared[1][threadIdx.x] - 5*inp_shared[3][threadIdx.x] + inp_shared[5][threadIdx.x];
                 break;
         }
-        // printf("%d %d %d %f %f %f\n", cur_channel, cur_row, cur_col, Btd_shared[threadIdx.x][threadIdx.y], inp_shared[threadIdx.x][threadIdx.y], inp_shared[2][threadIdx.y]);
+        // printf("%d %d %d %f %f %f\n", cur_channel, cur_row, cur_col, Btd_shared[threadIdx.y][threadIdx.x], inp_shared[threadIdx.y][threadIdx.x], inp_shared[2][threadIdx.x]);
         __syncthreads();
 
         // BtdB
         float tmp = 0;
-        switch(threadIdx.y){
+        switch(threadIdx.x){
             case 0:
-                tmp = 4*Btd_shared[threadIdx.x][0] - 5*Btd_shared[threadIdx.x][2] + Btd_shared[threadIdx.x][4];
+                tmp = 4*Btd_shared[threadIdx.y][0] - 5*Btd_shared[threadIdx.y][2] + Btd_shared[threadIdx.y][4];
                 break;
             case 1:
-                tmp = -4*Btd_shared[threadIdx.x][1] - 4*Btd_shared[threadIdx.x][2] + Btd_shared[threadIdx.x][3] + Btd_shared[threadIdx.x][4];
+                tmp = -4*Btd_shared[threadIdx.y][1] - 4*Btd_shared[threadIdx.y][2] + Btd_shared[threadIdx.y][3] + Btd_shared[threadIdx.y][4];
                 break;
             case 2:
-                tmp = 4*Btd_shared[threadIdx.x][1] - 4*Btd_shared[threadIdx.x][2] - Btd_shared[threadIdx.x][3] + Btd_shared[threadIdx.x][4];
+                tmp = 4*Btd_shared[threadIdx.y][1] - 4*Btd_shared[threadIdx.y][2] - Btd_shared[threadIdx.y][3] + Btd_shared[threadIdx.y][4];
                 break;
             case 3:
-                tmp = -2*Btd_shared[threadIdx.x][1] - Btd_shared[threadIdx.x][2] + 2*Btd_shared[threadIdx.x][3] + Btd_shared[threadIdx.x][4];
+                tmp = -2*Btd_shared[threadIdx.y][1] - Btd_shared[threadIdx.y][2] + 2*Btd_shared[threadIdx.y][3] + Btd_shared[threadIdx.y][4];
                 break;
             case 4:
-                tmp = 2*Btd_shared[threadIdx.x][1] - Btd_shared[threadIdx.x][2] - 2*Btd_shared[threadIdx.x][3] + Btd_shared[threadIdx.x][4];
+                tmp = 2*Btd_shared[threadIdx.y][1] - Btd_shared[threadIdx.y][2] - 2*Btd_shared[threadIdx.y][3] + Btd_shared[threadIdx.y][4];
                 break;
             case 5:
-                tmp = 4*Btd_shared[threadIdx.x][1] - 5*Btd_shared[threadIdx.x][3] + Btd_shared[threadIdx.x][5];
+                tmp = 4*Btd_shared[threadIdx.y][1] - 5*Btd_shared[threadIdx.y][3] + Btd_shared[threadIdx.y][5];
                 break;
         }
         // __syncthreads();
 
-        // V[cur_channel, b, threadIdx.x, threadIdx.y] = tmp, and b = (blockIdx.x*tile_numrow*tile_numcol) + blockIdx.y
-        V[cur_channel*P*36 + (blockIdx.x*tile_numrow*tile_numcol + blockIdx.y)*36 + threadIdx.x*6 + threadIdx.y] = tmp;
+        // V[cur_channel, b, threadIdx.y, threadIdx.x] = tmp, and b = (blockIdx.x*tile_numrow*tile_numcol) + blockIdx.y
+        V[cur_channel*P36 + (blockIdx.x*tile_num + blockIdx.y)*36 + threadIdx.y*6 + threadIdx.x] = tmp;
 
-        // printf("%d %d %d %d %f %f %f\n", cur_channel, cur_row, cur_col, cur_channel*P*16 + blockIdx.x*in_numrow*in_numcol*4+blockIdx.y*16 + threadIdx.x*4 + threadIdx.y,
-        //     Btd_shared[threadIdx.x][threadIdx.y], inp_shared[threadIdx.x][threadIdx.y], tmp);
-
-        __syncthreads();
+        // __syncthreads();
     }
 
 
     __global__ void calc_UV(float* U, float* V, float* out, int out_channels, int in_channels, int P){
         // U: out_channels x in_channels x 36, V: in_channels x P x 36, out: out_channels x P x 36
-        __shared__ float Uds[mm_tilewidth][mm_tilewidth];
-        __shared__ float Vds[mm_tilewidth][mm_tilewidth];
-
-        int row = blockIdx.x * mm_tilewidth + threadIdx.x;
-        int col = blockIdx.y * mm_tilewidth + threadIdx.y;
-        int place_in_36 = blockIdx.z;
+        __shared__ float Uds[mm_tilewidth][mm_tilewidth][36];
+        __shared__ float Vds[mm_tilewidth][mm_tilewidth][36];
+        
+        int row = blockIdx.y * mm_tilewidth + threadIdx.z;
+        int col = blockIdx.x * mm_tilewidth + threadIdx.y;
+        int place_in_36 = threadIdx.x;
         float p_value = 0;
 
         int iter_num = (in_channels+mm_tilewidth-1)/mm_tilewidth;
@@ -168,20 +171,20 @@ namespace winograd4{
             int read_col = m*mm_tilewidth+threadIdx.y;
             // U[row, m*mm_tilewidth+threadIdx.y, place_in_36]
             if(read_col < in_channels)
-                Uds[threadIdx.x][threadIdx.y] = U[row*in_channels*36 + read_col*36 + place_in_36];
+                Uds[threadIdx.z][threadIdx.y][place_in_36] = U[row*in_channels*36 + read_col*36 + place_in_36]; 
             else
-                Uds[threadIdx.x][threadIdx.y] = 0;
-
-            int read_row = m*mm_tilewidth+threadIdx.x;
-            // V[m*mm_tilewidth+threadIdx.x, col, place_in_36]
+                Uds[threadIdx.z][threadIdx.y][place_in_36] = 0;
+            
+            int read_row = m*mm_tilewidth+threadIdx.z;
             if(read_row < in_channels)
-                Vds[threadIdx.x][threadIdx.y] = V[read_row*P*36 + col*36 + place_in_36];
+                Vds[threadIdx.z][threadIdx.y][place_in_36] = V[read_row*P*36 + col*36 + place_in_36];
             else
-                Vds[threadIdx.x][threadIdx.y] = 0;
+                Vds[threadIdx.z][threadIdx.y][place_in_36] = 0;
             __syncthreads();
 
+            #pragma unroll
             for(int k=0; k<mm_tilewidth; k++){
-                p_value += Uds[threadIdx.x][k] * Vds[k][threadIdx.y];
+                p_value += Uds[threadIdx.z][k][place_in_36] * Vds[k][threadIdx.y][place_in_36];
             }
             __syncthreads();
         }
@@ -191,7 +194,44 @@ namespace winograd4{
         if(row < out_channels && col < P)
             out[row*P*36 + col*36 + place_in_36] = p_value;
     }
+//     __global__ void calc_UV(float* U, float* V, float* out, int out_channels, int in_channels, int P){
+//         // U: out_channels x in_channels x 36, V: in_channels x P x 36, out: out_channels x P x 36
+//         __shared__ float Uds[mm_tilewidth][mm_tilewidth];
+//         __shared__ float Vds[mm_tilewidth][mm_tilewidth];
 
+//         int row = blockIdx.x * mm_tilewidth + threadIdx.x;
+//         int col = blockIdx.y * mm_tilewidth + threadIdx.y;
+//         int place_in_36 = blockIdx.z;
+//         float p_value = 0;
+
+//         int iter_num = (in_channels+mm_tilewidth-1)/mm_tilewidth;
+//         for(int m=0; m<iter_num; m++){
+//             int read_col = m*mm_tilewidth+threadIdx.y;
+//             // U[row, m*mm_tilewidth+threadIdx.y, place_in_36]
+//             if(read_col < in_channels)
+//                 Uds[threadIdx.x][threadIdx.y] = U[row*in_channels*36 + read_col*36 + place_in_36];
+//             else
+//                 Uds[threadIdx.x][threadIdx.y] = 0;
+
+//             int read_row = m*mm_tilewidth+threadIdx.x;
+//             // V[m*mm_tilewidth+threadIdx.x, col, place_in_36]
+//             if(read_row < in_channels)
+//                 Vds[threadIdx.x][threadIdx.y] = V[read_row*P*36 + col*36 + place_in_36];
+//             else
+//                 Vds[threadIdx.x][threadIdx.y] = 0;
+//             __syncthreads();
+// #pragma unroll
+//             for(int k=0; k<mm_tilewidth; k++){
+//                 p_value += Uds[threadIdx.x][k] * Vds[k][threadIdx.y];
+//             }
+//             __syncthreads();
+//         }
+
+//         // printf("%d %d %d %f %f %f \n", row, col, place_in_16, p_value, Uds[threadIdx.x][threadIdx.y], Vds[threadIdx.x][threadIdx.y]);
+
+//         if(row < out_channels && col < P)
+//             out[row*P*36 + col*36 + place_in_36] = p_value;
+//     }
 
     __global__ void calc_AtmA(float* M, float* out, int out_channels, int P, int out_numrow, int out_numcol, int tile_num, int tile_numrow, int tile_numcol){
         // each block has 6*6 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
@@ -317,11 +357,370 @@ namespace winograd4{
                 now_row*out_numcol + now_col] = tmp + bias[cur_channel];
     }
 
+    __global__ void calc_AtmA_bias_relu(float* M, float* out, float* bias, int out_channels, int P, int out_numrow, int out_numcol, int tile_num, int tile_numrow, int tile_numcol){
+        // each block has 6*6 threads, and in total out_channels*P=(out_channels*batch_size*tile_num) blocks
+        // M: out_channels x P * 36
+        // TODO: 6*6 threads in a block leads to some inactive threads
+        int cur_channel = blockIdx.x, cur_batch = blockIdx.y;
+        int cur_tilerow = blockIdx.z / tile_numcol, cur_tilecol = blockIdx.z % tile_numrow;
 
-    __global__ void print_device(float* M, int length){
-        for(int i=0; i<length; i++) printf("%f ", M[i]);
+        // TODO: This memory may be optimized, too; only 6*6 is enough
+        __shared__ float m[6][6];
+        __shared__ float Atm[4][6];
+        m[threadIdx.x][threadIdx.y] = M[cur_channel*P*36 + (cur_batch*tile_num+blockIdx.z)*36 + threadIdx.x*6 + threadIdx.y];
+        __syncthreads();
+
+        if(threadIdx.x > 3) return; // valid operation?
+
+        switch(threadIdx.x){
+            case 0:
+                Atm[threadIdx.x][threadIdx.y] = m[0][threadIdx.y] + m[1][threadIdx.y] + m[2][threadIdx.y] +
+                                                m[3][threadIdx.y] + m[4][threadIdx.y];
+                break;
+            case 1:
+                Atm[threadIdx.x][threadIdx.y] = m[1][threadIdx.y] - m[2][threadIdx.y] + 2*m[3][threadIdx.y] - 2*m[4][threadIdx.y];
+                break;
+            case 2:
+                Atm[threadIdx.x][threadIdx.y] = m[1][threadIdx.y] + m[2][threadIdx.y] + 4*m[3][threadIdx.y] + 4*m[4][threadIdx.y];
+                break;
+            case 3:
+                Atm[threadIdx.x][threadIdx.y] = m[1][threadIdx.y] - m[2][threadIdx.y] + 8*m[3][threadIdx.y] -
+                                                8*m[4][threadIdx.y] + m[5][threadIdx.y];
+                break;
+        }
+        __syncthreads();
+
+        if(threadIdx.y > 3) return;
+
+        float tmp = 0;
+        switch(threadIdx.y){
+            case 0:
+                tmp = Atm[threadIdx.x][0] + Atm[threadIdx.x][1] + Atm[threadIdx.x][2] + Atm[threadIdx.x][3] + Atm[threadIdx.x][4];
+                break;
+            case 1:
+                tmp = Atm[threadIdx.x][1] - Atm[threadIdx.x][2] + 2*Atm[threadIdx.x][3] - 2*Atm[threadIdx.x][4];
+                break;
+            case 2:
+                tmp = Atm[threadIdx.x][1] + Atm[threadIdx.x][2] + 4*Atm[threadIdx.x][3] + 4*Atm[threadIdx.x][4];
+                break;
+            case 3:
+                tmp = Atm[threadIdx.x][1] - Atm[threadIdx.x][2] + 8*Atm[threadIdx.x][3] - 8*Atm[threadIdx.x][4] + Atm[threadIdx.x][5];
+                break;
+        }
+        // __syncthreads();
+
+        // out[cur_batch, cur_channel, cur_tilerow*4+threadIdx.x, cur_tilecol*4+threadIdx.y]
+        int now_row = 4*cur_tilerow+threadIdx.x;
+        int now_col = 4*cur_tilecol+threadIdx.y;
+        if(now_row < out_numrow && now_col < out_numcol)
+            out[cur_batch*out_channels*out_numrow*out_numcol + cur_channel*out_numrow*out_numcol +
+                now_row*out_numcol + now_col] = ((tmp + bias[cur_channel])>0)?(tmp + bias[cur_channel]):0;
     }
 
+
+    __global__ void calc_UV_AtmA_bias(float* U, float* V, float* out, float* bias, int out_channels, int in_channels, int P, int out_numrow, int out_numcol,
+        int tile_num, int tile_numrow, int tile_numcol, int out_size, int out_enum, int P36){
+        // U: out_channels x in_channels x 36, V: in_channels x P x 36, out: out_channels x P x 36
+        // thread: 36 x mm_tilewidth x mm_tilewidth
+        __shared__ float Uds[mm_tilewidth][mm_tilewidth][36];
+        __shared__ float Vds[mm_tilewidth][mm_tilewidth][36];
+        
+        int row = blockIdx.y * mm_tilewidth + threadIdx.z;
+        int col = blockIdx.x * mm_tilewidth + threadIdx.y;
+        int place_in_36 = threadIdx.x;
+        float p_value = 0;
+
+        float *m = Uds[threadIdx.z][threadIdx.y];
+        float *Atm = Vds[threadIdx.z][threadIdx.y];
+
+        int iter_num = (in_channels+mm_tilewidth-1)/mm_tilewidth;
+        for(int i=0; i<iter_num; i++){
+            int read_col = i*mm_tilewidth+threadIdx.y;
+            // U[row, m*mm_tilewidth+threadIdx.y, place_in_36]
+            if(read_col < in_channels)
+                m[place_in_36] = U[row*in_channels*36 + read_col*36 + place_in_36]; 
+            else
+                m[place_in_36] = 0;
+            
+            int read_row = i*mm_tilewidth+threadIdx.z;
+            if(read_row < in_channels)
+                Atm[place_in_36] = V[read_row*P*36 + col*36 + place_in_36];
+            else
+                Atm[place_in_36] = 0;
+            __syncthreads();
+
+            #pragma unroll
+            for(int k=0; k<mm_tilewidth; k++){
+                p_value += Uds[threadIdx.z][k][place_in_36] * Vds[k][threadIdx.y][place_in_36];
+            }
+            __syncthreads();
+        }
+
+        if(row >= out_channels || col >= P) return;
+
+        /***********************  AtmA  ***************************/
+        int cur_batch = col / tile_num, cur_channel = row, tile_idx = col % tile_num;
+        int cur_tilerow = tile_idx / tile_numcol, cur_tilecol = tile_idx % tile_numcol;
+
+        int threadIdx_y0 = threadIdx.x % 6, threadIdx_x0 = threadIdx.x / 6;
+
+        m[threadIdx_x0*6+threadIdx_y0] = p_value;
+        __syncthreads();
+
+        if(threadIdx_x0 > 3) return; // valid operation?
+
+        switch(threadIdx_x0){
+            case 0:
+                Atm[threadIdx_x0*6+threadIdx_y0] = m[0*6+threadIdx_y0] + m[1*6+threadIdx_y0] + m[2*6+threadIdx_y0] + 
+                                                        m[3*6+threadIdx_y0] + m[4*6+threadIdx_y0];
+                break;
+            case 1:
+                Atm[threadIdx_x0*6+threadIdx_y0] = m[1*6+threadIdx_y0] - m[2*6+threadIdx_y0] + 2*m[3*6+threadIdx_y0] - 
+                                                    2*m[4*6+threadIdx_y0];
+                break;
+            case 2:
+                Atm[threadIdx_x0*6+threadIdx_y0] = m[1*6+threadIdx_y0] + m[2*6+threadIdx_y0] + 4*m[3*6+threadIdx_y0] + 
+                                                    4*m[4*6+threadIdx_y0];
+                break;
+            case 3:
+                Atm[threadIdx_x0*6+threadIdx_y0] = m[1*6+threadIdx_y0] - m[2*6+threadIdx_y0] + 8*m[3*6+threadIdx_y0] -
+                                                    8*m[4*6+threadIdx_y0] + m[5*6+threadIdx_y0];
+                break;
+        }
+        __syncthreads();
+
+        // printf("%d, %d, %f\n", threadIdx_x0, threadIdx_y0, m[threadIdx_x0*6+threadIdx_y0]);
+
+        if(threadIdx_y0 > 3) return;
+
+        float tmp = 0;
+        switch(threadIdx_y0){
+            case 0:
+                tmp = Atm[threadIdx_x0*6+0] + Atm[threadIdx_x0*6+1] + Atm[threadIdx_x0*6+2] + Atm[threadIdx_x0*6+3] + Atm[threadIdx_x0*6+4];
+                break;
+            case 1:
+                tmp = Atm[threadIdx_x0*6+1] - Atm[threadIdx_x0*6+2] + 2*Atm[threadIdx_x0*6+3] - 2*Atm[threadIdx_x0*6+4];
+                break;
+            case 2:
+                tmp = Atm[threadIdx_x0*6+1] + Atm[threadIdx_x0*6+2] + 4*Atm[threadIdx_x0*6+3] + 4*Atm[threadIdx_x0*6+4];
+                break;
+            case 3:
+                tmp = Atm[threadIdx_x0*6+1] - Atm[threadIdx_x0*6+2] + 8*Atm[threadIdx_x0*6+3] - 8*Atm[threadIdx_x0*6+4] + Atm[threadIdx_x0*6+5];
+                break;
+        }
+        __syncthreads();
+
+        int now_row = 4*cur_tilerow+threadIdx_x0;
+        int now_col = 4*cur_tilecol+threadIdx_y0;
+        if(now_row < out_numrow && now_col < out_numcol){
+            // printf("%d, %d, %d, %d\n", cur_batch, cur_channel, now_row, now_col);
+            out[cur_batch*out_enum + cur_channel*out_size + 
+                    now_row*out_numcol + now_col] = tmp + bias[cur_channel]; 
+        }
+    }
+
+    __global__ void calc_UV_AtmA_bias_relu(float* U, float* V, float* out, float* bias, int out_channels, int in_channels, int P, int out_numrow, int out_numcol,
+        int tile_num, int tile_numrow, int tile_numcol, int out_size, int out_enum, int P36){
+        // U: out_channels x in_channels x 36, V: in_channels x P x 36, out: out_channels x P x 36
+        // thread: 36 x mm_tilewidth x mm_tilewidth
+        __shared__ float Uds[mm_tilewidth][mm_tilewidth][36];
+        __shared__ float Vds[mm_tilewidth][mm_tilewidth][36];
+        
+        int row = blockIdx.y * mm_tilewidth + threadIdx.z;
+        int col = blockIdx.x * mm_tilewidth + threadIdx.y;
+        int place_in_36 = threadIdx.x;
+        float p_value = 0;
+
+        float *m = Uds[threadIdx.z][threadIdx.y];
+        float *Atm = Vds[threadIdx.z][threadIdx.y];
+
+        int iter_num = (in_channels+mm_tilewidth-1)/mm_tilewidth;
+        for(int i=0; i<iter_num; i++){
+            int read_col = i*mm_tilewidth+threadIdx.y;
+            // U[row, m*mm_tilewidth+threadIdx.y, place_in_36]
+            if(read_col < in_channels)
+                m[place_in_36] = U[row*in_channels*36 + read_col*36 + place_in_36]; 
+            else
+                m[place_in_36] = 0;
+            
+            int read_row = i*mm_tilewidth+threadIdx.z;
+            if(read_row < in_channels)
+                Atm[place_in_36] = V[read_row*P*36 + col*36 + place_in_36];
+            else
+                Atm[place_in_36] = 0;
+            __syncthreads();
+
+            #pragma unroll
+            for(int k=0; k<mm_tilewidth; k++){
+                p_value += Uds[threadIdx.z][k][place_in_36] * Vds[k][threadIdx.y][place_in_36];
+            }
+            __syncthreads();
+        }
+
+        if(row >= out_channels || col >= P) return;
+
+        /***********************  AtmA  ***************************/
+        int cur_batch = col / tile_num, cur_channel = row, tile_idx = col % tile_num;
+        int cur_tilerow = tile_idx / tile_numcol, cur_tilecol = tile_idx % tile_numcol;
+
+        int threadIdx_y0 = threadIdx.x % 6, threadIdx_x0 = threadIdx.x / 6;
+
+        m[threadIdx_x0*6+threadIdx_y0] = p_value;
+        __syncthreads();
+
+        if(threadIdx_x0 > 3) return; // valid operation?
+
+        switch(threadIdx_x0){
+            case 0:
+                Atm[threadIdx_x0*6+threadIdx_y0] = m[0*6+threadIdx_y0] + m[1*6+threadIdx_y0] + m[2*6+threadIdx_y0] + 
+                                                        m[3*6+threadIdx_y0] + m[4*6+threadIdx_y0];
+                break;
+            case 1:
+                Atm[threadIdx_x0*6+threadIdx_y0] = m[1*6+threadIdx_y0] - m[2*6+threadIdx_y0] + 2*m[3*6+threadIdx_y0] - 
+                                                    2*m[4*6+threadIdx_y0];
+                break;
+            case 2:
+                Atm[threadIdx_x0*6+threadIdx_y0] = m[1*6+threadIdx_y0] + m[2*6+threadIdx_y0] + 4*m[3*6+threadIdx_y0] + 
+                                                    4*m[4*6+threadIdx_y0];
+                break;
+            case 3:
+                Atm[threadIdx_x0*6+threadIdx_y0] = m[1*6+threadIdx_y0] - m[2*6+threadIdx_y0] + 8*m[3*6+threadIdx_y0] -
+                                                    8*m[4*6+threadIdx_y0] + m[5*6+threadIdx_y0];
+                break;
+        }
+        __syncthreads();
+
+        // printf("%d, %d, %f\n", threadIdx_x0, threadIdx_y0, m[threadIdx_x0*6+threadIdx_y0]);
+
+        if(threadIdx_y0 > 3) return;
+
+        float tmp = 0;
+        switch(threadIdx_y0){
+            case 0:
+                tmp = Atm[threadIdx_x0*6+0] + Atm[threadIdx_x0*6+1] + Atm[threadIdx_x0*6+2] + Atm[threadIdx_x0*6+3] + Atm[threadIdx_x0*6+4];
+                break;
+            case 1:
+                tmp = Atm[threadIdx_x0*6+1] - Atm[threadIdx_x0*6+2] + 2*Atm[threadIdx_x0*6+3] - 2*Atm[threadIdx_x0*6+4];
+                break;
+            case 2:
+                tmp = Atm[threadIdx_x0*6+1] + Atm[threadIdx_x0*6+2] + 4*Atm[threadIdx_x0*6+3] + 4*Atm[threadIdx_x0*6+4];
+                break;
+            case 3:
+                tmp = Atm[threadIdx_x0*6+1] - Atm[threadIdx_x0*6+2] + 8*Atm[threadIdx_x0*6+3] - 8*Atm[threadIdx_x0*6+4] + Atm[threadIdx_x0*6+5];
+                break;
+        }
+        __syncthreads();
+
+        int now_row = 4*cur_tilerow+threadIdx_x0;
+        int now_col = 4*cur_tilecol+threadIdx_y0;
+        if(now_row < out_numrow && now_col < out_numcol && cur_channel < out_channels){
+            tmp += bias[cur_channel];
+            // printf("%f\n", tmp);
+            out[cur_batch*out_enum + cur_channel*out_size + 
+                    now_row*out_numcol + now_col] = (tmp > 0 ? tmp:0); 
+        }
+    }
+
+    __global__ void calc_UV_AtmA_bias_add_relu(float* U, float* V, float* out, float* bias, int out_channels, int in_channels, int P, int out_numrow, int out_numcol,
+        int tile_num, int tile_numrow, int tile_numcol, int out_size, int out_enum, int P36){
+        // U: out_channels x in_channels x 36, V: in_channels x P x 36, out: out_channels x P x 36
+        // thread: 36 x mm_tilewidth x mm_tilewidth
+        __shared__ float Uds[mm_tilewidth][mm_tilewidth][36];
+        __shared__ float Vds[mm_tilewidth][mm_tilewidth][36];
+        
+        int row = blockIdx.y * mm_tilewidth + threadIdx.z;
+        int col = blockIdx.x * mm_tilewidth + threadIdx.y;
+        int place_in_36 = threadIdx.x;
+        float p_value = 0;
+
+        float *m = Uds[threadIdx.z][threadIdx.y];
+        float *Atm = Vds[threadIdx.z][threadIdx.y];
+
+        int iter_num = (in_channels+mm_tilewidth-1)/mm_tilewidth;
+        for(int i=0; i<iter_num; i++){
+            int read_col = i*mm_tilewidth+threadIdx.y;
+            // U[row, m*mm_tilewidth+threadIdx.y, place_in_36]
+            if(read_col < in_channels)
+                m[place_in_36] = U[row*in_channels*36 + read_col*36 + place_in_36]; 
+            else
+                m[place_in_36] = 0;
+            
+            int read_row = i*mm_tilewidth+threadIdx.z;
+            if(read_row < in_channels)
+                Atm[place_in_36] = V[read_row*P*36 + col*36 + place_in_36];
+            else
+                Atm[place_in_36] = 0;
+            __syncthreads();
+
+            #pragma unroll
+            for(int k=0; k<mm_tilewidth; k++){
+                p_value += Uds[threadIdx.z][k][place_in_36] * Vds[k][threadIdx.y][place_in_36];
+            }
+            __syncthreads();
+        }
+
+        if(row >= out_channels || col >= P) return;
+
+        /***********************  AtmA  ***************************/
+        int cur_batch = col / tile_num, cur_channel = row, tile_idx = col % tile_num;
+        int cur_tilerow = tile_idx / tile_numcol, cur_tilecol = tile_idx % tile_numcol;
+
+        int threadIdx_y0 = threadIdx.x % 6, threadIdx_x0 = threadIdx.x / 6;
+
+        m[threadIdx_x0*6+threadIdx_y0] = p_value;
+        __syncthreads();
+
+        if(threadIdx_x0 > 3) return; // valid operation?
+
+        switch(threadIdx_x0){
+            case 0:
+                Atm[threadIdx_x0*6+threadIdx_y0] = m[0*6+threadIdx_y0] + m[1*6+threadIdx_y0] + m[2*6+threadIdx_y0] + 
+                                                        m[3*6+threadIdx_y0] + m[4*6+threadIdx_y0];
+                break;
+            case 1:
+                Atm[threadIdx_x0*6+threadIdx_y0] = m[1*6+threadIdx_y0] - m[2*6+threadIdx_y0] + 2*m[3*6+threadIdx_y0] - 
+                                                    2*m[4*6+threadIdx_y0];
+                break;
+            case 2:
+                Atm[threadIdx_x0*6+threadIdx_y0] = m[1*6+threadIdx_y0] + m[2*6+threadIdx_y0] + 4*m[3*6+threadIdx_y0] + 
+                                                    4*m[4*6+threadIdx_y0];
+                break;
+            case 3:
+                Atm[threadIdx_x0*6+threadIdx_y0] = m[1*6+threadIdx_y0] - m[2*6+threadIdx_y0] + 8*m[3*6+threadIdx_y0] -
+                                                    8*m[4*6+threadIdx_y0] + m[5*6+threadIdx_y0];
+                break;
+        }
+        __syncthreads();
+
+        // printf("%d, %d, %f\n", threadIdx_x0, threadIdx_y0, m[threadIdx_x0*6+threadIdx_y0]);
+
+        if(threadIdx_y0 > 3) return;
+
+        float tmp = 0;
+        switch(threadIdx_y0){
+            case 0:
+                tmp = Atm[threadIdx_x0*6+0] + Atm[threadIdx_x0*6+1] + Atm[threadIdx_x0*6+2] + Atm[threadIdx_x0*6+3] + Atm[threadIdx_x0*6+4];
+                break;
+            case 1:
+                tmp = Atm[threadIdx_x0*6+1] - Atm[threadIdx_x0*6+2] + 2*Atm[threadIdx_x0*6+3] - 2*Atm[threadIdx_x0*6+4];
+                break;
+            case 2:
+                tmp = Atm[threadIdx_x0*6+1] + Atm[threadIdx_x0*6+2] + 4*Atm[threadIdx_x0*6+3] + 4*Atm[threadIdx_x0*6+4];
+                break;
+            case 3:
+                tmp = Atm[threadIdx_x0*6+1] - Atm[threadIdx_x0*6+2] + 8*Atm[threadIdx_x0*6+3] - 8*Atm[threadIdx_x0*6+4] + Atm[threadIdx_x0*6+5];
+                break;
+        }
+        __syncthreads();
+
+        int now_row = 4*cur_tilerow+threadIdx_x0;
+        int now_col = 4*cur_tilecol+threadIdx_y0;
+        if(now_row < out_numrow && now_col < out_numcol && cur_channel < out_channels){
+            int idx = cur_batch*out_enum + cur_channel*out_size + now_row*out_numcol + now_col;
+            tmp += (out[idx] + bias[cur_channel]);
+            out[idx] = (tmp > 0 ? tmp:0); 
+        }
+    }
 }
 
 

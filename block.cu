@@ -5,82 +5,183 @@
 #include <cuda.h>
 #include <string.h>
 #include "kernels.cu"
-//#include "tensor.cu"
 #include "conv_winograd_4x4_3x3.cu"
 #include "conv_winograd_gpu.cu"
+#include "conv_im2col.cu"
+#include "conv_im2col_transpose.cu"
+#include "matmul.cu"
 
 using namespace std;
 
-class conv2d{
-private:
+class conv{
+public:
+    virtual void forward(float* A, float*& B)=0;
+};
+
+/*
+TOO LAZY TO USE ENUMERATE
+conv_type:
+    0: im2col, pre-allocate weight
+    1: im2col, allocate weight in forward
+    2: winograd 4x4, pre-allocate weight,
+    3: winograd 4x4 + relu, pre-allocate weight,
+    4: im2col + relu, pre-allocate weight
+    5: im2col + add + relu, pre-allocate weight,
+    6: winograd 4x4 + add + relu, pre-allocate weight,
+    7: im2col + add + relu + avg_pooling, pre-allocate weight,
+    -1: im2col, pre-allocate weight, only for 7x7
+*/
+
+void check_status(cudaError_t cudaStatus, const char* info){
+    if (cudaStatus != cudaSuccess) {
+        printf("%s ", info);
+        printf("memery operation failed %s\n", cudaGetErrorString(cudaStatus));
+        exit(1);
+    }
+}
+
+
+class conv_im2col: public conv {
+public:
     int in_channels;
     int out_channels;
     int kernel_size;
-    int dialations;
     int padding;
     int strides;
+    int inp_size;
+    int out_size;
+    int batch;
+    int colmat_height;
+    int colmat_width;
     float* Weight;
     float* Bias;
+    float* ColMat;
+    float* Out;
+    int conv_type;
 
-public:
-    conv2d(int in_c, int out_c, float* weight, float* bias, const int kernel_sz, const int dialations, const int padding, const int strides):
-            in_channels(in_c),out_channels(out_c),kernel_size(kernel_sz),dialations(dialations),padding(padding),strides(strides){
+    conv_im2col(int in_c, int out_c, float* weight, float* bias, int conv_type, const int kernel_sz, const int padding, const int stride, const int inp_size, const int batch):
+            in_channels(in_c),out_channels(out_c), conv_type(conv_type),kernel_size(kernel_sz),padding(padding),strides(stride), inp_size(inp_size), batch(batch){
 
-        cudaMalloc((void**)&Weight, kernel_size*kernel_size * in_channels * out_channels * sizeof(float));
-        cudaMalloc((void**)&Bias, 1*1*out_channels* sizeof(float));
+        cudaError_t cudaStatus;
+        cudaStatus = cudaMalloc((void**)&Weight, kernel_size*kernel_size * in_channels * out_channels * sizeof(float));
+        check_status(cudaStatus, "conv_im2col_weight");
+
+        cudaStatus = cudaMalloc((void**)&Bias, 1*1*out_channels* sizeof(float));
+        check_status(cudaStatus, "conv_im2col_bias");
 
         cudaMemcpy((void*)Weight, (void*)weight, kernel_size*kernel_size * in_channels * out_channels * sizeof(float), cudaMemcpyHostToDevice);
         cudaMemcpy((void*)Bias, (void*)bias, 1*1 * out_channels * sizeof(float), cudaMemcpyHostToDevice);
 
+        colmat_height = in_c * kernel_size * kernel_size;
+        out_size = (inp_size + padding*2 - kernel_size) / stride + 1;
+        colmat_width = out_size*out_size;
+        
+        if(conv_type==-1 || conv_type == 0 || conv_type == 4 || conv_type == 5 || conv_type == 7){
+            cudaStatus = cudaMalloc((void**)&ColMat, sizeof(float) * 1*colmat_height*colmat_width);
+            check_status(cudaStatus, "conv_im2col_malloc1");
+        }
+
+        if(conv_type==-1 || conv_type == 0 || conv_type == 4){
+            cudaStatus = cudaMalloc((void**)&Out, sizeof(float) * 1*out_c*out_size*out_size);
+            check_status(cudaStatus, "conv_im2col_malloc2");
+        }
     }
+    
     //input->tensor_A; output->tensor_B
-    void forward(float* A, int height_A, int width_A, int channel_A, int batch,
-                 float*& B, int& height_B, int &width_B, int &channel_B){
+    void forward(float* A, float*& B){
+        
+        cudaError_t cudaStatus;
+        if(! (conv_type==-1 || conv_type == 0 || conv_type == 4 || conv_type == 5 || conv_type == 7)){
+            cudaStatus = cudaMalloc((void**)&ColMat, sizeof(float) * batch*colmat_height*colmat_width);
+            check_status(cudaStatus, "conv_im2col malloc in forward");
+            cudaStatus = cudaMalloc((void**)&Out, batch * out_size * out_size * out_channels * sizeof(float));
+            check_status(cudaStatus, "conv_im2col malloc in forward");
+        }
 
-//        float* input = (float*) malloc(sizeof(float) * height_A * width_A * channel_A * batch);
-//        cudaMemcpy((void *)input, (void *) A, batch * width_A * height_A * channel_A * sizeof(float),
-//                   cudaMemcpyDeviceToHost);
-//        printf("check conv input: %f %f\n", input[0], input[20]);
+        // 第一个卷积
+        if(conv_type==-1){
+            dim3 blockNum(batch, out_size*in_channels, kernel_size);
+            dim3 threadsPerBlock(out_size, kernel_size);
+            im2col::im2col_CHW<<<blockNum, threadsPerBlock>>>(A, ColMat, kernel_size, in_channels,
+                    inp_size, inp_size, out_size, out_size, strides, padding, batch);
+        }else{ //其他卷积
+            dim3 blockNum(batch, out_size ,in_channels);
+            dim3 threadsPerBlock(out_size, kernel_size, kernel_size);
 
-        height_B = (height_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
-        width_B = (width_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
-        channel_B = out_channels;
+            im2col::im2col_CHW_2<<<blockNum, threadsPerBlock>>>(A, ColMat, kernel_size, in_channels,
+                    inp_size, inp_size, out_size, out_size, strides, padding, batch);
+        }
 
-        cudaMalloc((void**)&B, batch * width_B * height_B * out_channels * sizeof(float));
+        const int mm_tilewidth = 8;
+        dim3 blockNum2(batch, (out_channels+mm_tilewidth-1)/mm_tilewidth, (out_size*out_size+mm_tilewidth-1)/mm_tilewidth);
+        dim3 threadsPerBlock2(mm_tilewidth, mm_tilewidth);
 
-        int nthreads = batch * width_B * height_B * out_channels;
+        switch(conv_type){
+            case 4:
+                im2col::matmul_alloc_bias_relu<<<blockNum2,threadsPerBlock2>>>(Weight, ColMat, Bias, Out, batch, out_channels,
+                    out_size, out_size,
+                    out_channels,(in_channels*kernel_size*kernel_size), (out_size*out_size));
+                B = Out;
+                break;
+            case 5: // in-place operation
+                im2col::matmul_alloc_bias_add_relu<<<blockNum2,threadsPerBlock2>>>(Weight, ColMat, Bias, B, batch, out_channels,
+                    out_size, out_size, out_channels,(in_channels*kernel_size*kernel_size), (out_size*out_size));
+                break;
+            case 7: // in-place operation
+                im2col::matmul_alloc_bias_add_relu<<<blockNum2,threadsPerBlock2>>>(Weight, ColMat, Bias, B, batch, out_channels,
+                    out_size, out_size, out_channels,(in_channels*kernel_size*kernel_size), (out_size*out_size));
+                break;
+            case -1: // 7x7
+                // im2col::matmul_alloc_bias_relu_maxpool<<<blockNum2,threadsPerBlock2>>>(Weight, ColMat, Bias, Out, batch, out_channels,
+                //     inp_size, inp_size, out_channels,(in_channels*kernel_size*kernel_size), (out_size*out_size));
+                im2col::matmul_alloc_bias_relu<<<blockNum2,threadsPerBlock2>>>(Weight, ColMat, Bias, Out, batch, out_channels,
+                    out_size, out_size, out_channels,(in_channels*kernel_size*kernel_size), (out_size*out_size));
+                B = Out;
+                break;
+            default: // no post processing
+                im2col::matmul_alloc_bias<<<blockNum2,threadsPerBlock2>>>(Weight, ColMat, Bias, Out, batch, out_channels,
+                    out_size, out_size,
+                    out_channels,(in_channels*kernel_size*kernel_size), (out_size*out_size));
+                B = Out;
+                break;
+        }
 
-        int num=nthreads/400+1;
-        dim3 blockNum(num, 1);
-        dim3 threadsPerBlock(20, 20);
-
-        ConvolutionForward<<<blockNum, threadsPerBlock>>>(A, B, Weight, Bias, nthreads,batch, height_A, width_A, in_channels ,height_B, width_B, out_channels,
-                                                          kernel_size,kernel_size,strides,strides,padding,padding);
-
-//        printf("conv done! B: %f %f", B[0], B[10]);
+        if(! (conv_type==-1 || conv_type == 0 || conv_type == 4 || conv_type == 5 || conv_type == 7)){
+            cudaStatus = cudaFree(ColMat);
+            check_status(cudaStatus, "conv_im2col free in forward");
+        }
     }
 };
 
 
-class conv_wino_4x4_3x3 {
-private:
+class conv_wino_4x4_3x3: public conv {
+public:
     int in_channels;
     int out_channels;
     int kernel_size;
-    int dialations;
     int padding;
     int strides;
+    int conv_type;
+    int P;
+    int P36;
+    int inp_size;
+    int out_size;
+    int tile_numrow;
+    int tile_numcol;
+    int tile_num;
+    int batch;
+    int out_enum;
+    int inp_enum;
+
     float *Weight;
     float *Bias;
     float *d_U;
     float *d_V;
     float *d_UV;
+    float *Out;
 
-public:
-    conv_wino_4x4_3x3(int in_c, int out_c, float *weight, float *bias, const int kernel_sz, const int dialations,
-                      const int padding, const int strides) :
-            in_channels(in_c), out_channels(out_c), kernel_size(kernel_sz),
-            dialations(dialations), padding(padding), strides(strides) {
+    conv_wino_4x4_3x3(int in_c, int out_c, float* weight, float* bias, int conv_type, const int kernel_sz, const int padding, const int stride, const int inp_size, const int batch):
+            in_channels(in_c), out_channels(out_c), conv_type(conv_type), kernel_size(kernel_sz), padding(padding), strides(stride), inp_size(inp_size), batch(batch) {
 
         cudaMalloc((void**)&Bias, 1*1*out_channels* sizeof(float));
         cudaMemcpy((void*)Bias, (void*)bias, 1*1 * out_channels * sizeof(float), cudaMemcpyHostToDevice);
@@ -91,93 +192,43 @@ public:
         cudaMalloc((void **) &d_U, sizeof(float) * out_channels * in_channels * 36);
         cudaMemcpy((void*)d_U, (void*)U, sizeof(float) * out_channels * in_channels * 36, cudaMemcpyHostToDevice);
 
-        printf("wino conv 4x4 weight malloc done. \n");
-
+        tile_numrow = (inp_size+3)/4;
+        tile_numcol = (inp_size+3)/4;
+        P = batch * tile_numrow * tile_numcol;
+        P36 = P*36;
+        out_size = (inp_size + padding*2 - kernel_size) / stride + 1;
+        tile_num = tile_numrow * tile_numcol;
+        out_enum = out_size * out_size *  out_channels;
+        inp_enum = inp_size * inp_size * in_channels;
+        cudaMalloc((void**)&d_V, sizeof(float) * P*in_channels*36);
+        cudaMalloc((void**)&d_UV, sizeof(float) * out_c*P*36);
+        cudaMalloc((void**)&Out, sizeof(float) * batch*out_c*out_size*out_size);
     }
 
     //input->tensor_A; output->tensor_B
-    void forward(float* A, int height_A, int width_A, int channel_A, int batch,
-                 float*& B, int& height_B, int &width_B, int &channel_B) {
+    void forward(float* A, float*& B) {
 
-        int tile_numrow = ceil(height_A*1.0/4);
-        int tile_numcol = ceil(width_A*1.0/4);
-        int P = batch * tile_numrow * tile_numcol;
-        int tile_num = tile_numrow * tile_numcol;
-        const int mm_tilewidth = 8;
-//        printf("P %d tile_num %d\n",P,tile_num);
-        // =================================================计算输出大小
-        height_B = (height_A + 2 * padding - dialations * (kernel_size - 1) - 1) / strides + 1;
-        width_B = (width_A + 2 * padding - dialations * (kernel_size - 1) - 1) / strides + 1;
-        channel_B = out_channels;
-
-        cudaMalloc((void **) &B, batch * width_B * height_B * out_channels * sizeof(float));
-        cudaMalloc((void **) &d_V, sizeof(float) * in_channels * P * 36);
-        cudaMalloc((void **) &d_UV, sizeof(float) * out_channels * P * 36);
-
+        const int mm_tilewidth = 4;
         // =================================================执行
-        winograd4::calc_V<<<dim3(batch, tile_num, in_channels), dim3(6, 6)>>>(A, d_V, P, batch, in_channels, height_A, width_A, tile_numrow, tile_numcol);
-        winograd4::calc_UV<<<dim3(ceil(out_channels*1.0 / mm_tilewidth),ceil(P*1.0 / mm_tilewidth), 36), dim3(mm_tilewidth, mm_tilewidth)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
-        winograd4::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(6, 6)>>>(d_UV, B, Bias, out_channels, P,
-                height_B, width_B, tile_num, tile_numrow,tile_numcol);
-
-    }
-};
-
-
-class conv_wino_2x2_3x3{
-private:
-    int in_channels;
-    int out_channels;
-    int kernel_size;
-    int dialations;
-    int padding;
-    int strides;
-    float* Weight;
-    float* Bias;
-    float *d_U;
-    float *d_V;
-    float *d_UV;
-
-public:
-    conv_wino_2x2_3x3(int in_c, int out_c, float* weight, float* bias, const int kernel_sz, const int dialations, const int padding, const int strides):
-            in_channels(in_c),out_channels(out_c),kernel_size(kernel_sz),dialations(dialations),padding(padding),strides(strides){
-        cudaMalloc((void**)&Bias, 1*1*out_channels* sizeof(float));
-        cudaMemcpy((void*)Bias, (void*)bias, 1*1 * out_channels * sizeof(float), cudaMemcpyHostToDevice);
-
-        float* U = (float*) malloc(sizeof(float)*out_channels*in_channels*16);
-        winograd2::calc_U(weight, U, in_channels, out_channels); // CPU function, as it can be calculated beforehand
-
-        cudaMalloc((void **) &d_U, sizeof(float) * out_channels * in_channels * 16);
-        cudaMemcpy((void*)d_U, (void*)U, sizeof(float) * out_channels * in_channels * 16, cudaMemcpyHostToDevice);
-
-        printf("wino conv 2x2 weight malloc done. \n");
-
-    }
-    //input->tensor_A; output->tensor_B
-    void forward(float* A, int height_A, int width_A, int channel_A, int batch,
-                 float*& B, int& height_B, int &width_B, int &channel_B){
-
-        int tile_numrow = ceil(height_A*1.0/2);
-        int tile_numcol = ceil(width_A*1.0/2);
-        int P = batch * tile_numrow * tile_numcol;
-        int tile_num = tile_numrow * tile_numcol;
-
-        const int mm_tilewidth = 8;
-//        printf("P %d tile_num %d\n",P,tile_num);
-        // =================================================计算输出大小
-        height_B = (height_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
-        width_B = (width_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
-        channel_B = out_channels;
-
-        cudaMalloc((void**)&B, batch * width_B * height_B * out_channels * sizeof(float));
-        cudaMalloc((void **) &d_V, sizeof(float) * in_channels * P * 16);
-        cudaMalloc((void **) &d_UV, sizeof(float) * out_channels * P * 16);
-
-        // =================================================执行
-        winograd2::calc_V<<<dim3(batch, tile_num, in_channels), dim3(4, 4)>>>(A, d_V, P, batch, in_channels, height_A, width_A, tile_numrow, tile_numcol);
-        winograd2::calc_UV<<<dim3(ceil(out_channels*1.0/mm_tilewidth), ceil(P*1.0/mm_tilewidth), 16), dim3(mm_tilewidth, mm_tilewidth)>>>(d_U, d_V, d_UV, out_channels, in_channels, P);
-        winograd2::calc_AtmA_bias<<<dim3(out_channels, batch, tile_num), dim3(2, 2)>>>(d_UV, B, Bias, out_channels, P, height_B, width_B, tile_num,tile_numrow, tile_numcol);
-
+        winograd4::calc_V<<<dim3(batch, tile_num, in_channels), dim3(6, 6)>>>
+                (A, d_V, P, batch, in_channels, inp_size, inp_size, tile_numrow, tile_numcol, tile_num, inp_size*inp_size, inp_enum, P36);
+        
+        switch(conv_type){
+            case 2:
+                winograd4::calc_UV_AtmA_bias<<<dim3((P+mm_tilewidth-1)/mm_tilewidth, (out_channels+mm_tilewidth-1)/mm_tilewidth), dim3(36, mm_tilewidth, mm_tilewidth)>>>
+                    (d_U, d_V, Out, Bias, out_channels, in_channels, P, out_size, out_size, tile_num, tile_numrow, tile_numcol, out_size*out_size, out_enum, P36);
+                B = Out;
+                break;
+            case 3:
+                winograd4::calc_UV_AtmA_bias_relu<<<dim3((P+mm_tilewidth-1)/mm_tilewidth, (out_channels+mm_tilewidth-1)/mm_tilewidth), dim3(36, mm_tilewidth, mm_tilewidth)>>>
+                    (d_U, d_V, Out, Bias, out_channels, in_channels, P, out_size, out_size, tile_num, tile_numrow, tile_numcol, out_size*out_size, out_enum, P36);
+                B = Out;
+                break;
+            case 6:
+                winograd4::calc_UV_AtmA_bias_add_relu<<<dim3((P+mm_tilewidth-1)/mm_tilewidth, (out_channels+mm_tilewidth-1)/mm_tilewidth), dim3(36, mm_tilewidth, mm_tilewidth)>>>
+                    (d_U, d_V, B, Bias, out_channels, in_channels, P, out_size, out_size, tile_num, tile_numrow, tile_numcol, out_size*out_size, out_enum, P36);
+                break;
+        }
     }
 };
 
@@ -187,24 +238,18 @@ private:
     int kernel_size;
     int padding;
     int strides;
+    float* B;
 
 public:
     maxpooling2d(int kernel_sz, int padding, int strides):
-            kernel_size(kernel_sz), padding(padding),strides(strides){}
+            kernel_size(kernel_sz), padding(padding),strides(strides){
+        cudaError_t cudaStatus;
+        cudaStatus = cudaMalloc((void**)&B, 1*64*56*56 * sizeof(float));
+        check_status(cudaStatus, "maxpooling malloc");
+    }
 
     void forward(float* A, int height_A, int width_A, int channel_A, int batch,
-                 float*& B, int& height_B, int &width_B, int &channel_B){
-
-//        float* input = (float*) malloc(sizeof(float) * height_A * width_A * channel_A * batch);
-//        cudaMemcpy((void *)input, (void *) A, batch * width_A * height_A * channel_A * sizeof(float),
-//                   cudaMemcpyDeviceToHost);
-//        printf("check maxpooling input: %f %f\n", input[0], input[20]);
-        // =================================================计算输出大小
-        height_B = (height_A-kernel_size+2*padding)/strides+1;
-        width_B = (width_A-kernel_size+2*padding)/strides+1;
-        channel_B = channel_A;
-
-        cudaMalloc((void**)&B, batch * width_B * height_B * channel_A * sizeof(float));
+                 float*& Out, int height_B, int width_B, int channel_B){
 
         // =================================================执行
         int nthreads = batch * width_B * height_B * channel_B;
@@ -213,30 +258,24 @@ public:
         dim3 blockNum(num, 1);
         dim3 threadsPerBlock(20, 20);
 
-        MaxPoolForward <<<blockNum, threadsPerBlock>>>(A,B, nthreads, channel_A, height_A, width_A, height_B, width_B,
+        MaxPoolForward <<<blockNum, threadsPerBlock>>>(A, B, nthreads, channel_A, height_A, width_A, height_B, width_B,
                                                        kernel_size,kernel_size,strides,strides,padding,padding);
-
+        Out = B;
     }
 
 };
 
+
 class GlobalAvgpooling{
 public:
-    GlobalAvgpooling()= default;
+    float * B;
+    GlobalAvgpooling(){
+        cudaError_t cudaStatus;
+        cudaStatus = cudaMalloc((void**)&B, 1*512*1*1 * sizeof(float));
+        check_status(cudaStatus, "avgpooling malloc");
+    }
     void forward(float* A, int height_A, int width_A, int channel_A, int batch,
-                 float*& B, int& height_B, int &width_B, int &channel_B){
-
-//        float* input = (float*) malloc(sizeof(float) * height_A * width_A * channel_A * batch);
-//        cudaMemcpy((void *)input, (void *) A, batch * width_A * height_A * channel_A * sizeof(float),
-//                   cudaMemcpyDeviceToHost);
-//        printf("check avgpooling input: %f %f\n", input[0], input[20]);
-
-        // =================================================计算输出大小
-        height_B = 1;
-        width_B = 1;
-        channel_B = channel_A;
-
-        cudaMalloc((void**)&B, batch * width_B * height_B * channel_B * sizeof(float));
+                 float*& Out, int height_B, int width_B, int channel_B){
 
         // =================================================执行
         int nthreads = batch * width_B * height_B * channel_B;
@@ -248,161 +287,41 @@ public:
         AvgPoolForward<<<blockNum, threadsPerBlock>>>(A,B, nthreads,channel_A,height_A,width_A,height_B,width_B,
                                                       height_A, width_A,1,1,0,0);
 
-//        printf("Avgpooling done! %d %d %d %d %f\n",tensor_B->batch,tensor_B->channels,tensor_B->height,tensor_B->width,tensor_B->data[0]);
-
-    }
-};
-
-
-class Relu{
-public:
-    Relu()= default;
-
-    void forward(float* A, int height_A, int width_A, int channel_A, int batch,
-                 float*& B, int& height_B, int &width_B, int &channel_B){
-
-//        float* input = (float*) malloc(sizeof(float) * height_A * width_A * channel_A * batch);
-//        cudaMemcpy((void *)input, (void *) A, batch * width_A * height_A * channel_A * sizeof(float),
-//                   cudaMemcpyDeviceToHost);
-//        printf("check relu input: %f %f\n", input[0], input[20]);
-
-        height_B = height_A;
-        width_B = width_A;
-        channel_B = channel_A;
-        cudaMalloc((void**)&B, batch * width_B * height_B * channel_B * sizeof(float));
-
-        // =================================================执行
-        int nthread = width_B * height_B * batch * channel_B;
-
-        int num=nthread/400+1;
-        dim3 blockNum(num, 1);
-        dim3 threadsPerBlock(20, 20);
-
-        relu <<<blockNum, threadsPerBlock>>>(A,B,nthread);
-    }
-};
-
-
-class Add_Relu{
-public:
-    Add_Relu()= default;
-    // A+B=C
-    void forward(float* A, int height_A, int width_A, int channel_A, int batch,
-                 float* B, int height_B, int width_B, int channel_B,
-                 float*& C, int &height_C, int &width_C, int &channel_C) {
-
-//        float* input = (float*) malloc(sizeof(float) * height_A * width_A * channel_A * batch);
-//        cudaMemcpy((void *)input, (void *) A, batch * width_A * height_A * channel_A * sizeof(float),
-//                   cudaMemcpyDeviceToHost);
-//        printf("check add relu input: %f %f\n", input[0], input[20]);
-
-        height_C = height_A;
-        width_C = width_A;
-        channel_C = channel_A;
-
-        cudaMalloc((void **) &C, batch * width_C * height_C * channel_C * sizeof(float));
-
-        int nthread = width_C * height_C * batch * channel_C;
-
-        int num=nthread/400+1;
-        dim3 blockNum(num, 1);
-        dim3 threadsPerBlock(20, 20);
-
-        add_relu<<<blockNum, threadsPerBlock>>>(A, B, C,nthread);
+        Out = B;
     }
 };
 
 
 class Gemm{
 private:
-    int in_dim;
-    int out_dim;
+    int l1, l2, l3;
     float* Weight; // out_dim x in_dim
     float* Bias; // out_dim
+    float* B;
 public:
-    Gemm(int indim, int outdim, float* weight, float* bias):in_dim(indim),out_dim(outdim){
-        cudaMalloc((void**)&Weight, out_dim * in_dim * sizeof(float));
-        cudaMalloc((void**)&Bias, out_dim* sizeof(float));
+    Gemm(int l1, int l2, int l3, float* weight, float* bias):
+        l1(l1), l2(l2), l3(l3){
+        cudaError_t cudaStatus;
+        cudaStatus = cudaMalloc((void**)&Weight, l2 * l3 * sizeof(float));
+        check_status(cudaStatus, "gemm weight malloc");
+        cudaStatus = cudaMalloc((void**)&Bias, l3* sizeof(float));
+        check_status(cudaStatus, "gemm bias malloc");
 
-        cudaMemcpy((void*)Weight, (void*)weight, out_dim * in_dim * sizeof(float), cudaMemcpyHostToDevice);
-        cudaMemcpy((void*)Bias, (void*)bias, out_dim * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy((void*)Weight, (void*)weight, l2 * l3 * sizeof(float), cudaMemcpyHostToDevice);
+        cudaMemcpy((void*)Bias, (void*)bias, l3 * sizeof(float), cudaMemcpyHostToDevice);
 
+        cudaStatus = cudaMalloc((void**)&B, l1 * l3 * sizeof(float));
+        check_status(cudaStatus, "gemm malloc");
     }
+
     // A x Weight + Bias = B
-    void forward(float* A, int height_A, int width_A, int channel_A, int batch,
-                 float*& B, int& height_B, int &width_B, int &channel_B){
+    void forward(float* A, float*& Out){
 
-//        float* input = (float*) malloc(sizeof(float) * height_A * width_A * channel_A * batch);
-//        cudaMemcpy((void *)input, (void *) A, batch * width_A * height_A * channel_A * sizeof(float),
-//                   cudaMemcpyDeviceToHost);
-//        printf("check gemm input: %f %f\n", input[0], input[20]);
-
-        height_B = 1;
-        width_B = 1;
-        channel_B = out_dim;
-
-        cudaMalloc((void**)&B, batch * width_B * height_B * channel_B * sizeof(float));
-
-        int nthreads = batch * out_dim;
-
-        dim3 blockNum(batch*out_dim/400+1,1);
-        dim3 threadsPerBlock(20, 20);
-
-        simple_matmul<<<blockNum, threadsPerBlock>>>(A, B, Weight, Bias, nthreads, batch, in_dim, out_dim);
-
-        //      printf("gemm done!: %f %f %d %d %d %d\n",tensor_B->data[0], tensor_B->data[132],
-        //             tensor_B->batch, tensor_B->channels,tensor_B->height,tensor_B->width);
-    }
-};
-
-
-class conv2d_relu{
-private:
-    int in_channels;
-    int out_channels;
-    int kernel_size;
-    int dialations;
-    int padding;
-    int strides;
-    float* Weight;
-    float* Bias;
-
-public:
-    conv2d_relu(int in_c, int out_c, float* weight, float* bias, const int kernel_sz, const int dialations, const int padding, const int strides):
-            in_channels(in_c),out_channels(out_c),kernel_size(kernel_sz),dialations(dialations),padding(padding),strides(strides){
-
-        cudaMalloc((void**)&Weight, kernel_size*kernel_size * in_channels * out_channels * sizeof(float));
-        cudaMalloc((void**)&Bias, 1*1*out_channels* sizeof(float));
-
-        cudaMemcpy((void*)Weight, (void*)weight, kernel_size*kernel_size * in_channels * out_channels * sizeof(float), cudaMemcpyHostToDevice);
-        cudaMemcpy((void*)Bias, (void*)bias, 1*1 * out_channels * sizeof(float), cudaMemcpyHostToDevice);
-
-    }
-    //input->tensor_A; output->tensor_B
-    void forward(float* A, int height_A, int width_A, int channel_A, int batch,
-                 float*& B, int& height_B, int &width_B, int &channel_B){
-
-//        float* input = (float*) malloc(sizeof(float) * height_A * width_A * channel_A * batch);
-//        cudaMemcpy((void *)input, (void *) A, batch * width_A * height_A * channel_A * sizeof(float),
-//                   cudaMemcpyDeviceToHost);
-
-        // =================================================计算输出大小
-        height_B = (height_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
-        width_B = (width_A+2*padding-dialations*(kernel_size-1)-1)/strides + 1;
-        channel_B = out_channels;
-
-        cudaMalloc((void**)&B, batch * width_B * height_B * out_channels * sizeof(float));
-
-        // =================================================执行
-        int nthreads = batch * width_B * height_B * out_channels;
-
-        int num=nthreads/400+1;
-        dim3 blockNum(num, 1);
-        dim3 threadsPerBlock(20, 20);
-
-        conv_relu<<<blockNum, threadsPerBlock>>>(A, B, Weight, Bias, nthreads,batch, height_A, width_A, in_channels ,height_B, width_B, out_channels,
-                                                 kernel_size,kernel_size,strides,strides,padding,padding);
-
+        const int mm_tilewidth = 8;
+        dim3 blockNum((l1+mm_tilewidth-1)/mm_tilewidth, (l3+mm_tilewidth-1)/mm_tilewidth);
+        dim3 threadsPerBlock(mm_tilewidth, mm_tilewidth);
+        matmul::matmul_bias<<<blockNum,threadsPerBlock>>>(A, Weight, Bias, B, l1, l2, l3);
+        Out = B;
     }
 };
 
@@ -413,83 +332,35 @@ private:
     float* Bias1;
     float* Weight2;
     float* Bias2;
-    conv2d *conv1;
-    conv2d *conv2;
-    conv_wino_2x2_3x3 *conv1_2x2;
-    conv_wino_2x2_3x3 *conv2_2x2;
-    conv_wino_4x4_3x3 *conv1_4x4;
-    conv_wino_4x4_3x3 *conv2_4x4;
-    conv2d_relu *conv1_relu;//merge
-    Relu *relu;
-    Add_Relu *add_relu;
+    conv *conv1;
+    conv *conv2;
     int conv_type;
 
 public:
     ~BasicBlock(){};
 
-    BasicBlock(int _inplanes, int _planes, float* weight1, float* bias1, float* weight2, float* bias2, int conv_type):
+    BasicBlock(int _inplanes, int _planes, float* weight1, float* bias1, float* weight2, float* bias2, int conv_type1, int conv_type2, int _inp_size):
             Weight1(weight1),Bias1(bias1),Weight2(weight2),Bias2(bias2),conv_type(conv_type)
     {
-        if (conv_type == 1){
-//            conv1_relu =new conv2d_relu{_inplanes, _planes, Weight1,Bias1, 3, 1, 1, 1};//merge
-            conv1 = new conv2d{_inplanes, _planes, Weight1,Bias1, 3, 1, 1, 1};//3*3卷积，stride=1
-            conv2 = new conv2d{_planes, _planes, Weight2, Bias2,3, 1, 1, 1};//3*3卷积，stride=1
-        }else if (conv_type == 2){
-            conv1_2x2 = new conv_wino_2x2_3x3{_inplanes, _planes, Weight1,Bias1, 3, 1, 1, 1};
-            conv2_2x2 = new conv_wino_2x2_3x3{_planes, _planes, Weight2, Bias2,3, 1, 1, 1};
-        }else if (conv_type == 4){
-            conv1_4x4 = new conv_wino_4x4_3x3{_inplanes, _planes, Weight1,Bias1, 3, 1, 1, 1};
-            conv2_4x4 = new conv_wino_4x4_3x3{_planes, _planes, Weight2, Bias2,3, 1, 1, 1};
-        }
+        if (conv_type1==0 || conv_type1==1 || conv_type1==4 || conv_type1==5 || conv_type1==7)
+            conv1 = new conv_im2col{_inplanes, _planes, Weight1, Bias1, conv_type1, 3, 1, 1, _inp_size, 1};//3*3卷积，stride=1
+        else 
+            conv1 = new conv_wino_4x4_3x3{_inplanes, _planes, Weight1, Bias1, conv_type1, 3, 1, 1, _inp_size, 1};
 
-        relu = new Relu{};
-        add_relu = new Add_Relu{};
+        if (conv_type2==0 || conv_type2==1 || conv_type2==4 || conv_type2==5 || conv_type2==7)
+            conv2 = new conv_im2col{_planes, _planes, Weight2, Bias2, conv_type2, 3, 1, 1, _inp_size, 1};//3*3卷积，stride=1
+        else
+            conv2 = new conv_wino_4x4_3x3{_planes, _planes, Weight2, Bias2, conv_type2, 3, 1, 1, _inp_size, 1};
     };
 
-    void forward(float* A, int height_A, int width_A, int channel_A, int batch,
-                 float*& B, int& height_B, int &width_B, int &channel_B){
-        float* residual = A;
+    void forward(float* A, float*& B){
         float *output, *output2;
-        int height, width, channel;
-        int height2, width2, channel2;
+        output = A;
 
-        if (conv_type == 1){
-            conv1->forward(A, height_A, width_A, channel_A, batch,
-                           output, height, width, channel);
-        }else if (conv_type == 2){
-            conv1_2x2->forward(A, height_A, width_A, channel_A, batch,
-                               output, height, width, channel);
-        }else if (conv_type == 4){
-            conv1_4x4->forward(A, height_A, width_A, channel_A, batch,
-                               output, height, width, channel);
-        }
-        relu->forward(output, height, width, channel, batch,
-                      output2, height2, width2, channel2);
-//        conv1_relu->forward(A, height_A, width_A, channel_A, batch,
-//                            output2, height2, width2, channel2);
+        conv1->forward(A, output2);
+        conv2->forward(output2, output);
 
-        cudaFree(output);
-
-        if (conv_type == 1){
-            conv2->forward(output2, height2, width2, channel2, batch,
-                           output,height, width, channel);
-        }else if (conv_type == 2){
-            conv2_2x2->forward(output2, height2, width2, channel2, batch,
-                               output,height, width, channel);
-        }else if (conv_type == 4){
-            conv2_4x4->forward(output2, height2, width2, channel2, batch,
-                               output,height, width, channel);
-        }
-//        printf("conv2 ok %d %d %d %d %f \n", output->batch,output->channels,output->height,output->width, output->data[131]);
-        cudaFree(output2);
-
-        add_relu->forward(output,height, width, channel,batch,
-                          residual,height_A,width_A, channel_A,
-                          B, height_B, width_B, channel_B);
-
-        cudaFree(output);
-//        printf("add ok %d %d %d %d %f \n",output2->batch,output2->channels,output2->height,output2->width, output2->data[131]);
-        //       printf("Basic block ok: %d %d %d %d\n",B->batch,B->channels,B->height,B->width);
+        B = output;
     };
 };
 
@@ -499,88 +370,40 @@ private:
     float *Weight1,*Bias1;
     float *Weight2,*Bias2;
     float *Weight3,*Bias3;
-    conv2d *conv1,*conv2,*conv3;
-    conv_wino_2x2_3x3 *conv1_2x2;
-    conv_wino_2x2_3x3 *conv2_2x2;
-    conv_wino_4x4_3x3 *conv1_4x4;
-    conv_wino_4x4_3x3 *conv2_4x4;
-    Relu *relu;
-    Add_Relu *add_relu;
-    int conv_type;
+    conv *conv1, *conv2, *conv3;
+    int conv_type1, conv_type2, conv_type3;
 
 public:
     ~Bottleneck(){};
 
-    Bottleneck(int _inplanes, int _planes, float* weight1, float* bias1, float* weight2, float* bias2, float* weight3, float* bias3,int _stride, int conv_type):
-            Weight1(weight1),Bias1(bias1),Weight2(weight2),Bias2(bias2),Weight3(weight3),Bias3(bias3),conv_type(conv_type)
+    Bottleneck(int _inplanes, int _planes, float* weight1, float* bias1, float* weight2, float* bias2, float* weight3, float* bias3,int _stride, int conv_type1, int conv_type2, int conv_type3, int _inp_size):
+            Weight1(weight1),Bias1(bias1),Weight2(weight2),Bias2(bias2),Weight3(weight3),Bias3(bias3),conv_type1(conv_type1), conv_type2(conv_type2), conv_type3(conv_type3)
     {
-        conv1 = new conv2d{_inplanes,_planes,weight1,bias1,3,1,1,_stride};//3*3卷积 stride=_strinde ic=_inplanes oc=width
-        if (conv_type == 1){
-            conv2 = new conv2d{_planes,_planes,weight2,bias2, 3, 1, 1, 1};//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
-        }else if (conv_type == 2){
-//            conv1_2x2 = new conv_wino_2x2_3x3{_inplanes,_planes,weight1,bias1,3, 1, 1, _stride};//3*3卷积 stride=_strinde ic=_inplanes oc=width
-            conv2_2x2 = new conv_wino_2x2_3x3{_planes,_planes,weight2,bias2, 3, 1, 1, 1};//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
-        }else if (conv_type == 4){
-//            conv1_4x4 = new conv_wino_4x4_3x3{_inplanes,_planes,weight1,bias1,3,1,1,_stride};//3*3卷积 stride=_strinde ic=_inplanes oc=width
-            conv2_4x4 = new conv_wino_4x4_3x3{_planes,_planes,weight2,bias2, 3, 1, 1, 1};//3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
-        }
+        if (conv_type1==0 || conv_type1==1 || conv_type1==4 || conv_type1==5 || conv_type1==7)
+            conv1 = new conv_im2col{_inplanes, _planes, Weight1, Bias1, conv_type1, 3, 1, 2, _inp_size, 1}; //3*3卷积，stride=1,ic\oc=width,groups=_groups,dilation=_dilation
+        else 
+            conv1 = new conv_wino_4x4_3x3{_inplanes, _planes, Weight1, Bias1, conv_type1, 3, 1, 2,  _inp_size, 1};
 
-        conv3 = new conv2d{_inplanes,_planes,weight3,bias3, 1, 1, 0, _stride};//1*1 ic=width,oc=_planes*expansion
-        relu = new Relu;
-        add_relu = new Add_Relu;
+        if (conv_type2==0 || conv_type2==1 || conv_type2==4 || conv_type2==5 || conv_type2==7)
+            conv2 = new conv_im2col{_planes, _planes, Weight2, Bias2, conv_type2, 3, 1, 1, _inp_size/2, 1};//3*3卷积，stride=1
+        else
+            conv2 = new conv_wino_4x4_3x3{_planes, _planes, Weight2, Bias2, conv_type2, 3, 1, 1,  _inp_size/2, 1};
+        
+        if (conv_type3==0 || conv_type3==1 || conv_type3==4 || conv_type3==5 || conv_type3==7)
+            conv3 = new conv_im2col{_inplanes, _planes, Weight3, Bias3, conv_type3, 1, 0, 2, _inp_size, 1};//1*1卷积，stride=1
+        else
+            conv3 = new conv_wino_4x4_3x3{_inplanes, _planes, Weight3, Bias3, conv_type3, 1, 0, 2,  _inp_size, 1};
     };
 
-    void forward(float* A, int height_A, int width_A, int channel_A, int batch,
-                 float*& B, int& height_B, int &width_B, int &channel_B){
-        float* identity  = A;
-        float *output, *output2;
-        int height, width, channel;
-        int height2, width2, channel2;
-//        printf("start bottleneck!\n");
+    void forward(float* A, float*& B){
+        float *output1, *output2;
 
-//        if (conv_type == 1){
-//            conv1->forward(A, height_A, width_A, channel_A, batch,
-//                           output, height, width, channel);
-//        }else if (conv_type == 2){
-//            conv1_2x2->forward(A, height_A, width_A, channel_A, batch,
-//                               output, height, width, channel);
-//        }else if (conv_type == 4){
-//            conv1_4x4->forward(A, height_A, width_A, channel_A, batch,
-//                               output, height, width, channel);
-//        }
-        conv1->forward(A, height_A, width_A, channel_A, batch,
-                           output, height, width, channel);
+        conv1->forward(A, output1);
+        conv2->forward(output1, output2);
 
-//        printf("conv ok %d %d %d %d %f \n", output->batch,output->channels,output->height,output->width, output->data[131]);
-        relu->forward(output, height, width, channel, batch,
-                      output2, height2, width2, channel2);
-//        printf("relu ok output %d %d %d %d %f \n",output2->batch,output2->channels,output2->height,output2->width, output2->data[131]);
-        cudaFree(output);
-
-        if (conv_type == 1){
-            conv2->forward(output2, height2, width2, channel2, batch,
-                           output,height, width, channel);
-        }else if (conv_type == 2){
-            conv2_2x2->forward(output2, height2, width2, channel2, batch,
-                               output,height, width, channel);
-        }else if (conv_type == 4){
-            conv2_4x4->forward(output2, height2, width2, channel2, batch,
-                               output,height, width, channel);
-        }
-
-        cudaFree(output2);
-
-        conv3->forward(identity, height_A, width_A, channel_A, batch,
-                       output2, height2, width2, channel2);
-
-        add_relu->forward(output2,height2, width2, channel2, batch,
-                          output, height, width, channel,
-                          B, height_B, width_B, channel_B);
-
-        cudaFree(output2);
-        cudaFree(output);
-        //     printf("Bottle neck ok %d %d %d %d %f \n", B->batch,B->channels,B->height,B->width, B->data[131]);
-
+        conv3->forward(A, output2);
+        
+        B = output2;
     };
 
 };

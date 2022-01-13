@@ -1,3 +1,0 @@
-/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles/cudnn_resnet.dir
-/home/group20/resnet_cuda/tmp/tmp.TBOU2mVRre/cmake-build-debug/CMakeFiles/rebuild_cache.dir

@@ -5,6 +5,8 @@
 
 *We use im2col and winograd(4x4) to speed up convolution*.
 
+onnx模型下载链接：链接：https://pan.baidu.com/s/1eVvb2OedbnYR7m6PG-U_Cw   提取码：ksm8
+
 ## 解析onnx模型并获取参数
 1、通过get_onnx_weight.py获得weight.json
 

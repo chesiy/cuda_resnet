@@ -1,5 +1,4 @@
 # Group20 Resnet18
-组员：卞思沅 陈思远 林端儿
 
 *In this repo, we reimplement **ResNet18** with CUDA, and make optimizations to speed up inference. Experiments show that our code is faster than the pytorch version (batchsize=1).*
 
